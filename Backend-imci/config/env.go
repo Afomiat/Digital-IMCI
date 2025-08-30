@@ -8,18 +8,20 @@ import (
 )
 
 type Env struct {
-	LocalServerPort       string `mapstructure:"LOCAL_SERVER_PORT"`
-	PostgresDSN           string `mapstructure:"POSTGRES_DSN"`
-	JWTSecret             string `mapstructure:"JWT_SECRET"`
-	ContextTimeout        int    `mapstructure:"CONTEXT_TIMEOUT"`
-	SMTPUsername          string `mapstructure:"SMTPUsername"`
-	SMTPPassword          string `mapstructure:"SMTPPassword"`
-	SMTPHost              string `mapstructure:"SMTPHost"`
-	SMTPPort              string `mapstructure:"SMTPPort"`
-	AccessTokenSecret     string `mapstructure:"ACCESS_TOKEN_SECRET"`
-	RefreshTokenSecret    string `mapstructure:"REFRESH_TOKEN_SECRET"`
-	AccessTokenExpiryHour int    `mapstructure:"ACCESS_TOKEN_EXPIRY_HOUR"`
-	RefreshTokenExpiryHour int   `mapstructure:"REFRESH_TOKEN_EXPIRY_HOUR"`
+	LocalServerPort        string `mapstructure:"LOCAL_SERVER_PORT"`
+	PostgresDSN            string `mapstructure:"POSTGRES_DSN"`
+	JWTSecret              string `mapstructure:"JWT_SECRET"`
+	ContextTimeout         int    `mapstructure:"CONTEXT_TIMEOUT"`
+	AccessTokenSecret      string `mapstructure:"ACCESS_TOKEN_SECRET"`
+	RefreshTokenSecret     string `mapstructure:"REFRESH_TOKEN_SECRET"`
+	AccessTokenExpiryHour  int    `mapstructure:"ACCESS_TOKEN_EXPIRY_HOUR"`
+	RefreshTokenExpiryHour int    `mapstructure:"REFRESH_TOKEN_EXPIRY_HOUR"`
+	
+	// SMS Configuration (replacing email/SMTP)
+	TwilioAccountSID       string `mapstructure:"TWILIO_ACCOUNT_SID"`
+	TwilioAuthToken        string `mapstructure:"TWILIO_AUTH_TOKEN"`
+	TwilioFromNumber       string `mapstructure:"TWILIO_FROM_NUMBER"`
+	UseMockSMS             bool   `mapstructure:"USE_MOCK_SMS"`
 }
 
 func NewEnv() *Env {
