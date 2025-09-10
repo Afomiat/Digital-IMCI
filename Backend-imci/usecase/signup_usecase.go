@@ -5,33 +5,35 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
-    "github.com/google/uuid"
+
 	"github.com/Afomiat/Digital-IMCI/config"
 	"github.com/Afomiat/Digital-IMCI/domain"
 	"github.com/Afomiat/Digital-IMCI/internal/userutil"
-	"github.com/Afomiat/Digital-IMCI/service"
+	"github.com/google/uuid"
 )
 
 type SignupUsecase struct {
 	medicalProfessionalRepo domain.MedicalProfessionalRepository
 	otpRepo                 domain.OtpRepository
-	smsService              service.SMSService
+	telegramService         domain.TelegramService
 	contextTimeout          time.Duration
 	env                     *config.Env
 }
-
+// (medicalProfessionalRepo, otpRepo, smsService, timeout, env, telegramService)
 func NewSignupUsecase(
 	medicalProfessionalRepo domain.MedicalProfessionalRepository,
 	otpRepo domain.OtpRepository,
-	smsService service.SMSService,
+	telegramService domain.TelegramService,
 	timeout time.Duration,
 	env *config.Env,
 ) domain.SignupUsecase {
 	return &SignupUsecase{
 		medicalProfessionalRepo: medicalProfessionalRepo,
 		otpRepo:                 otpRepo,
-		smsService:              smsService,
+		telegramService:         telegramService,
+
 		contextTimeout:          timeout,
 		env:                     env,
 	}
@@ -70,6 +72,7 @@ func (su *SignupUsecase) RegisterMedicalProfessional(ctx context.Context, form *
 	return professional.ID, nil
 }
 
+
 func (su *SignupUsecase) SendOtp(ctx context.Context, professional *domain.MedicalProfessional) error {
 	storedOTP, err := su.otpRepo.GetOtpByPhone(ctx, professional.Phone)
 	if err != nil && !errors.Is(err, domain.ErrNotFound) {
@@ -96,14 +99,20 @@ func (su *SignupUsecase) SendOtp(ctx context.Context, professional *domain.Medic
 		return err
 	}
 
-	// Send OTP via SMS instead of email
-	if err := su.smsService.SendOTP(ctx, professional.Phone, otp.Code); err != nil {
-		return fmt.Errorf("failed to send SMS OTP: %w", err)
+	// ✅ ONLY Telegram - No SMS fallback
+	fmt.Print("proffesional************************", professional)
+	if professional.TelegramUsername == "" {
+		return errors.New("Telegram username is required for OTP delivery")
 	}
 
+	// Send OTP via Telegram only
+	if err := su.telegramService.SendOTP(ctx, professional.TelegramUsername, otp.Code); err != nil {
+		return fmt.Errorf("failed to send Telegram OTP: %w", err)
+	}
+
+	log.Printf("Telegram OTP sent successfully to @%s", professional.TelegramUsername)
 	return nil
 }
-
 func (su *SignupUsecase) GetOtpByPhone(ctx context.Context, phone string) (*domain.OTP, error) {
 	ctx, cancel := context.WithTimeout(ctx, su.contextTimeout)
 	defer cancel()

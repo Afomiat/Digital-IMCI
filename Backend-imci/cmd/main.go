@@ -1,4 +1,3 @@
-// main.go
 package main
 
 import (
@@ -19,23 +18,23 @@ func main() {
 	db := config.ConnectPostgres(env)
 	timeout := time.Duration(env.ContextTimeout) * time.Second
 
-	// Initialize repositories - they already return the interface type
+	// Initialize repositories
 	medicalProfessionalRepo := repository.NewMedicalProfessionalRepo(db)
 	otpRepo := repository.NewOtpRepository(db)
+	telegramRepo := repository.NewTelegramRepository(db) 
 
-	// Initialize SMS service
-	var smsService service.SMSService
-	if env.UseMockSMS {
-		smsService = service.NewMockSMSService()
-		log.Println("Using Mock SMS Service for development")
-	} else {
-		smsService = service.NewSMSService(
-			env.TwilioAccountSID,
-			env.TwilioAuthToken,
-			env.TwilioFromNumber,
-		)
-		log.Println("Using Twilio SMS Service")
+	// Initialize Telegram service - REAL SERVICE ONLY
+	if env.TelegramBotToken == "" {
+		log.Fatal("TELEGRAM_BOT_TOKEN environment variable is required")
 	}
+
+	telegramService, err := service.NewTelegramBotService(env.TelegramBotToken, telegramRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize Telegram bot: %v", err)
+	}
+	log.Printf("Telegram Bot Service initialized successfully")
+
+	// ✅ REMOVED SMS service entirely - we're only using Telegram now
 
 	r := gin.Default()
 
@@ -47,7 +46,8 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	route.Setup(env, timeout, db, r, medicalProfessionalRepo, otpRepo, smsService)
+	// ✅ Pass only telegramService (no SMS service)
+	route.Setup(env, timeout, db, r, medicalProfessionalRepo, otpRepo, telegramService)
 
 	if err := r.Run(env.LocalServerPort); err != nil {
 		log.Fatalf("Failed to start the server: %v", err)

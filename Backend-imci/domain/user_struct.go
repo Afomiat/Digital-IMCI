@@ -13,6 +13,7 @@ type MedicalProfessional struct {
 	Phone        string    `json:"phone"`
 	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"`
+	TelegramUsername string    `json:"telegram_username"` 
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -31,6 +32,8 @@ type SignupForm struct {
 	Phone    string `json:"phone" binding:"required"`
 	Password string `json:"password" binding:"required"`
 	Role     string `json:"role" binding:"required"`
+	TelegramUsername string `json:"telegram_username"` 
+	
 }
 
 type LoginRequest struct {

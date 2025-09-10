@@ -38,6 +38,7 @@ func (sc *SignupController) Signup(ctx *gin.Context) {
 		return
 	}
 
+
 	// Check if phone already exists
 	existingProfessional, _ := sc.SignupUsecase.GetMedicalProfessionalByPhone(ctx, form.Phone)
 	if existingProfessional != nil {
@@ -55,6 +56,7 @@ func (sc *SignupController) Signup(ctx *gin.Context) {
 		FullName: form.FullName,
 		Phone:    form.Phone,
 		Role:     form.Role,
+		TelegramUsername: form.TelegramUsername,
 	}
 
 	err := sc.SignupUsecase.SendOtp(ctx, professional)
