@@ -5,31 +5,27 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/Afomiat/Digital-IMCI/domain"
 )
 
-type TelegramRepository interface {
-	SaveChatID(ctx context.Context, username string, chatID int64) error
-	GetChatIDByUsername(ctx context.Context, username string) (int64, error)
-	DeleteChatID(ctx context.Context, username string) error
-}
 
 type telegramRepository struct {
 	db *pgxpool.Pool
 }
 
-func NewTelegramRepository(db *pgxpool.Pool) TelegramRepository {
+func NewTelegramRepository(db *pgxpool.Pool) domain.TelegramRepository {
 	return &telegramRepository{db: db}
 }
 
-func (t *telegramRepository) SaveChatID(ctx context.Context, username string, chatID int64) error {
+func (t *telegramRepository) SaveChatID(ctx context.Context, username string, chatID int64, phone string) error {
 	query := `
-		INSERT INTO telegram_chat_ids (telegram_username, chat_id)
-		VALUES ($1, $2)
+		INSERT INTO telegram_chat_ids (telegram_username, chat_id, phone_number)
+		VALUES ($1, $2, $3)
 		ON CONFLICT (telegram_username) 
-		DO UPDATE SET chat_id = $2, updated_at = NOW()
+		DO UPDATE SET chat_id = $2, phone_number = $3, updated_at = NOW()
 	`
 	
-	_, err := t.db.Exec(ctx, query, username, chatID)
+	_, err := t.db.Exec(ctx, query, username, chatID, phone)
 	if err != nil {
 		return fmt.Errorf("failed to save telegram chat ID: %w", err)
 	}
@@ -46,6 +42,18 @@ func (t *telegramRepository) GetChatIDByUsername(ctx context.Context, username s
 	}
 	
 	return chatID, nil
+}
+
+func (t *telegramRepository) GetUsernameByPhone(ctx context.Context, phone string) (string, error) {
+	var username string
+	query := `SELECT telegram_username FROM telegram_chat_ids WHERE phone_number = $1`
+	
+	err := t.db.QueryRow(ctx, query, phone).Scan(&username)
+	if err != nil {
+		return "", fmt.Errorf("failed to get username for phone %s: %w", phone, err)
+	}
+	
+	return username, nil
 }
 
 func (t *telegramRepository) DeleteChatID(ctx context.Context, username string) error {

@@ -4,19 +4,22 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
-	"github.com/Afomiat/Digital-IMCI/repository"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/Afomiat/Digital-IMCI/domain"
+	"github.com/Afomiat/Digital-IMCI/internal/userutil"
 )
 
 type telegramBotService struct {
-	bot              *tgbotapi.BotAPI
-	telegramRepo     repository.TelegramRepository
-	botUsername      string // Store bot username for deep links
+	bot          *tgbotapi.BotAPI
+	telegramRepo domain.TelegramRepository
+	otpRepo      domain.OtpRepository
+	botUsername  string
 }
 
-func NewTelegramBotService(token string, telegramRepo repository.TelegramRepository) (domain.TelegramService, error) {
+func NewTelegramBotService(token string, telegramRepo domain.TelegramRepository, otpRepo domain.OtpRepository) (domain.TelegramService, error) {
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Telegram bot: %w", err)
@@ -28,27 +31,25 @@ func NewTelegramBotService(token string, telegramRepo repository.TelegramReposit
 	service := &telegramBotService{
 		bot:          bot,
 		telegramRepo: telegramRepo,
-		botUsername:  bot.Self.UserName, // Store the bot username
+		otpRepo:      otpRepo,
+		botUsername:  bot.Self.UserName,
 	}
 
-	// Start the polling loop
 	go service.startPolling()
 
 	return service, nil
 }
 
-// Add this one simple function to generate start links
 func (t *telegramBotService) GetStartLink() string {
-	return fmt.Sprintf("https://t.me/%s?start=signup", t.botUsername)
+	return fmt.Sprintf("https://t.me/%s", t.botUsername)
 }
 
-// The rest of your existing code remains exactly the same...
 func (t *telegramBotService) startPolling() {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updates := t.bot.GetUpdatesChan(u)
 
-	log.Println("Started Telegram bot polling for /start commands...")
+	log.Println("Started Telegram bot polling...")
 	for update := range updates {
 		t.handleUpdate(update)
 	}
@@ -59,90 +60,163 @@ func (t *telegramBotService) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 
-	user := update.Message.From
-	if user == nil {
+	// Handle /start command
+	if update.Message.IsCommand() && update.Message.Command() == "start" {
+		t.handleStartCommand(update)
 		return
 	}
 
-	// Handle /start command or "Start" button click
-	if update.Message.IsCommand() && update.Message.Command() == "start" || update.Message.Text == "🚀 Start" {
-		// Save to database
-		err := t.telegramRepo.SaveChatID(context.Background(), user.UserName, update.Message.Chat.ID)
-		if err != nil {
-			log.Printf("Failed to save chat ID for @%s: %v", user.UserName, err)
-			return
-		}
-
-		log.Printf("User @%s started the bot. Chat ID: %d (saved to DB)", user.UserName, update.Message.Chat.ID)
-
-		// Create MAIN keyboard with persistent buttons
-		mainKeyboard := tgbotapi.NewReplyKeyboard(
-			tgbotapi.NewKeyboardButtonRow(
-				tgbotapi.NewKeyboardButton("📝 Sign Up"),
-				tgbotapi.NewKeyboardButton("ℹ️ Help"),
-			),
-		)
-		mainKeyboard.OneTimeKeyboard = false // Keyboard stays visible
-
-		welcomeMsg := tgbotapi.NewMessage(update.Message.Chat.ID,
-			"👋 *Welcome to Digital IMCI!*\n\n"+
-				"✅ Your Telegram is connected: @@"+user.UserName+"\n"+
-				"🆔 Your Chat ID: `"+fmt.Sprintf("%d", update.Message.Chat.ID)+"`\n\n"+
-				"*Ready for verification!* Use the buttons below:",
-		)
-		welcomeMsg.ParseMode = "Markdown"
-		welcomeMsg.ReplyMarkup = mainKeyboard
-
-		t.bot.Send(welcomeMsg)
+	// Handle contact sharing
+	if update.Message.Contact != nil {
+		t.handleContact(update)
+		return
 	}
 
-	// Handle button clicks
-	if update.Message.Text == "📝 Sign Up" {
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID,
-			"🎯 *Let's get you registered!*\n\n"+
-				"1. Visit our website\n"+
-				"2. Use your Telegram username: *@@"+user.UserName+"*\n"+
-				"3. You'll receive your OTP here!",
-		)
-		msg.ParseMode = "Markdown"
-		t.bot.Send(msg)
-	}
-
-	if update.Message.Text == "ℹ️ Help" {
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID,
-			"❓ *Need Help?*\n\n"+
-				"• *Sign Up:* Click the 'Sign Up' button \n"+
-				"• *OTP Issues:* Make sure you started the bot  by sending '/start'\n"+
-     			"*Your Telegram ID:* @@"+user.UserName,
-		)
-		msg.ParseMode = "Markdown"
-		t.bot.Send(msg)
+	// Handle help command
+	if update.Message.IsCommand() && update.Message.Command() == "help" {
+		t.sendHelpMessage(update.Message.Chat.ID)
+		return
 	}
 }
+
+func (t *telegramBotService) handleStartCommand(update tgbotapi.Update) {
+
+
+	args := strings.TrimSpace(update.Message.CommandArguments())
+	chatID := update.Message.Chat.ID
+
+	if args == "" {
+		// Ask for phone number
+		btn := tgbotapi.NewKeyboardButtonContact("📱 Share phone number")
+		keyboard := tgbotapi.NewReplyKeyboard(
+			tgbotapi.NewKeyboardButtonRow(btn),
+		)
+
+		msg := tgbotapi.NewMessage(chatID, "Please share your phone number to continue.")
+		msg.ReplyMarkup = keyboard
+		t.bot.Send(msg)
+		return
+	}
+
+	// Deep link path → use provided phone directly
+	t.linkAccountAndSendOTP(update.Message.From.UserName, chatID, args)
+}
+
+func (t *telegramBotService) handleContact(update tgbotapi.Update) {
+	chatID := update.Message.Chat.ID
+	contact := update.Message.Contact
+
+	if contact == nil {
+		return
+	}
+
+	phone := contact.PhoneNumber
+	username := update.Message.From.UserName
+
+	// Remove the keyboard after sharing
+	msg := tgbotapi.NewMessage(chatID, "✅ Phone received. Linking your account...")
+	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+	t.bot.Send(msg)
+
+	t.linkAccountAndSendOTP(username, chatID, phone)
+}
+
+func (t *telegramBotService) linkAccountAndSendOTP(username string, chatID int64, phone string) {
+	ctx := context.Background()
+
+	// Save Telegram mapping
+	if err := t.telegramRepo.SaveChatID(ctx, username, chatID, phone); err != nil {
+		log.Printf("Failed to save chat ID: %v", err)
+		t.reply(chatID, "❌ Failed to link your account. Please try again.")
+		return
+	}
+
+	log.Printf("Successfully saved Telegram mapping for @%s", username)
+
+	// Generate OTP
+	otpCode := userutil.GenerateOTP()
+	otp := &domain.OTP{
+		Phone:     phone,
+		Code:      otpCode,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(5 * time.Minute),
+	}
+	if err := t.otpRepo.SaveOTP(ctx, otp); err != nil {
+		log.Printf("Failed to save OTP: %v", err)
+		t.reply(chatID, "❌ Error generating OTP. Please try again.")
+		return
+	}
+
+	// Send OTP (HTML mode)
+	otpMessage := fmt.Sprintf(
+		"🔐 <b>Digital IMCI Verification</b>\n\n"+
+			"Your OTP code is: <code>%s</code>\n\n"+
+			"⏰ <b>Expires in:</b> 5 minutes\n\n"+
+			"Enter this code in the app to complete your registration!",
+		otpCode,
+	)
+
+	msg := tgbotapi.NewMessage(chatID, otpMessage)
+	msg.ParseMode = "HTML"
+	if _, err := t.bot.Send(msg); err != nil {
+		log.Printf("Failed to send OTP message: %v", err)
+		t.reply(chatID, "❌ Failed to send OTP. Please try again.")
+		return
+	}
+
+	// Success summary
+	// successMsg := fmt.Sprintf(
+	// 	"✅ <b>Account Linked Successfully!</b>\n\n"+
+	// 		"• Telegram: @%s\n"+
+	// 		"• Phone: %s\n\n"+
+	// 		"Return to the Digital IMCI app and enter the OTP code to complete your registration.",
+	// 	username, phone,
+	// )
+	// msg2 := tgbotapi.NewMessage(chatID, successMsg)
+	// msg2.ParseMode = "HTML"
+	// t.bot.Send(msg2)
+
+	// log.Printf("Successfully completed Telegram linking for @%s", username)
+}
+
+func (t *telegramBotService) reply(chatID int64, message string) {
+	msg := tgbotapi.NewMessage(chatID, message)
+	msg.ParseMode = "HTML"
+	_, err := t.bot.Send(msg)
+	if err != nil {
+		log.Printf("Failed to send message: %v", err)
+	}
+}
+
+func (t *telegramBotService) sendHelpMessage(chatID int64) {
+	msg := tgbotapi.NewMessage(chatID,
+		"🤖 <b>Digital IMCI Telegram Bot</b>\n\n"+
+			"To link your account:\n"+
+			"1. Visit our app and start signup\n"+
+			"2. Click 'Link Telegram' button\n"+
+			"3. Use the provided link\n\n"+
+			"Your OTP will be sent automatically after linking!",
+	)
+	msg.ParseMode = "HTML"
+	t.bot.Send(msg)
+}
+
 func (t *telegramBotService) SendOTP(ctx context.Context, telegramUsername, code string) error {
-	// Remove @ prefix if present
 	if len(telegramUsername) > 0 && telegramUsername[0] == '@' {
 		telegramUsername = telegramUsername[1:]
 	}
 
-	// Get chat ID from DATABASE instead of memory
 	chatID, err := t.telegramRepo.GetChatIDByUsername(ctx, telegramUsername)
 	if err != nil {
-		return fmt.Errorf("user @%s has not started the bot. Please ask them to send /start to @%s first", 
-			telegramUsername, t.bot.Self.UserName)
+		return fmt.Errorf("user @%s has not linked their Telegram account", telegramUsername)
 	}
 
-	// ✅ FIX: Escape special characters for MarkdownV2
-	// In MarkdownV2, these characters must be escaped: _ * [ ] ( ) ~ ` > # + - = | { } . !
-	escapedCode := tgbotapi.EscapeText(tgbotapi.ModeMarkdownV2, code)
-	
-	// Send the OTP via Telegram
 	messageText := fmt.Sprintf(
-		"🔐 *Digital IMCI Verification*\n\nYour verification code is: `%s`\n\nThis code will expire in 5 minutes\\.",
-		escapedCode,
+		"🔐 <b>Digital IMCI Verification</b>\n\nYour code is: <code>%s</code>\n⏰ Expires in 5 minutes",
+		code,
 	)
 	msg := tgbotapi.NewMessage(chatID, messageText)
-	msg.ParseMode = "MarkdownV2"
+	msg.ParseMode = "HTML"
 
 	_, err = t.bot.Send(msg)
 	if err != nil {
@@ -150,5 +224,35 @@ func (t *telegramBotService) SendOTP(ctx context.Context, telegramUsername, code
 	}
 
 	log.Printf("OTP %s sent successfully to @%s (Chat ID: %d)", code, telegramUsername, chatID)
+	return nil
+}
+
+// Add this method to your existing telegramBotService
+func (t *telegramBotService) SendPasswordResetOTP(ctx context.Context, telegramUsername, code string) error {
+	if len(telegramUsername) > 0 && telegramUsername[0] == '@' {
+		telegramUsername = telegramUsername[1:]
+	}
+
+	chatID, err := t.telegramRepo.GetChatIDByUsername(ctx, telegramUsername)
+	if err != nil {
+		return fmt.Errorf("user @%s has not linked their Telegram account", telegramUsername)
+	}
+
+	messageText := fmt.Sprintf(
+		"🔐 <b>Password Reset Request</b>\n\n"+
+			"Your password reset code is: <code>%s</code>\n\n"+
+			"⏰ <b>Expires in:</b> 5 minutes\n\n"+
+			"Enter this code in the app to reset your password.",
+		code,
+	)
+	msg := tgbotapi.NewMessage(chatID, messageText)
+	msg.ParseMode = "HTML"
+
+	_, err = t.bot.Send(msg)
+	if err != nil {
+		return fmt.Errorf("failed to send Telegram message to @%s: %w", telegramUsername, err)
+	}
+
+	log.Printf("Password reset OTP %s sent successfully to @%s (Chat ID: %d)", code, telegramUsername, chatID)
 	return nil
 }

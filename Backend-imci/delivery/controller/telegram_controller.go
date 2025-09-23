@@ -22,6 +22,23 @@ func (tc *TelegramController) GetStartLink(ctx *gin.Context) {
 	
 	ctx.JSON(http.StatusOK, gin.H{
 		"start_link": startLink,
-		"message":    "Use this link to start the Telegram bot without typing /start",
+		"message":    "Use this link to start the Telegram bot",
+	})
+}
+
+func (tc *TelegramController) GenerateSignupQR(ctx *gin.Context) {
+	username := ctx.Query("username")
+	if username == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Username required"})
+		return
+	}
+
+
+	startLink := tc.TelegramService.GetStartLink()
+	
+	ctx.JSON(http.StatusOK, gin.H{
+		"start_link": startLink,
+		"username": username,
+		"message": "Scan the QR code or use the link to start the bot",
 	})
 }
