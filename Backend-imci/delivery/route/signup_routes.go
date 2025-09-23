@@ -18,11 +18,23 @@ func NewSignUpRouter(
 	Group *gin.RouterGroup,
 	medicalProfessionalRepo domain.MedicalProfessionalRepository,
 	otpRepo domain.OtpRepository,
-	telegramService domain.TelegramService, // Only Telegram, no SMS
+	telegramService domain.TelegramService,
+	whatsappService domain.WhatsAppService,
+	telegramRepo domain.TelegramRepository, // Add this parameter
 ) {
-	signUsecase := usecase.NewSignupUsecase(medicalProfessionalRepo, otpRepo, telegramService, timeout, env)
-	signController := controller.NewSignupController(signUsecase, env)
-
+	signUsecase := usecase.NewSignupUsecase(
+		medicalProfessionalRepo, 
+		otpRepo, 
+		telegramService, 
+		whatsappService,
+		timeout, 
+		env,
+	)
+	
+	// Pass telegramRepo to the controller
+	signController := controller.NewSignupController(signUsecase, telegramRepo, env)
 	Group.POST("/signup", signController.Signup)
 	Group.POST("/verify", signController.Verify)
+	Group.GET("/debug-config", signController.DebugConfig)
+	Group.GET("/validate-telegram", signController.ValidateTelegramSession)
 }

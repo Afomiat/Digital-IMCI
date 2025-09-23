@@ -21,20 +21,36 @@ func main() {
 	// Initialize repositories
 	medicalProfessionalRepo := repository.NewMedicalProfessionalRepo(db)
 	otpRepo := repository.NewOtpRepository(db)
-	telegramRepo := repository.NewTelegramRepository(db) 
+	telegramRepo := repository.NewTelegramRepository(db)
+	
+	// Initialize password reset repository
+	passwordResetRepo := repository.NewPasswordResetRepository(db)
 
-	// Initialize Telegram service - REAL SERVICE ONLY
+	// Initialize Telegram service with OTP repo
 	if env.TelegramBotToken == "" {
 		log.Fatal("TELEGRAM_BOT_TOKEN environment variable is required")
 	}
 
-	telegramService, err := service.NewTelegramBotService(env.TelegramBotToken, telegramRepo)
+	telegramService, err := service.NewTelegramBotService(
+		env.TelegramBotToken, 
+		telegramRepo, 
+		otpRepo,
+	)
 	if err != nil {
 		log.Fatalf("Failed to initialize Telegram bot: %v", err)
 	}
 	log.Printf("Telegram Bot Service initialized successfully")
 
-	// ✅ REMOVED SMS service entirely - we're only using Telegram now
+	// Initialize Meta WhatsApp service
+	if env.MetaWhatsAppAccessToken == "" || env.MetaWhatsAppPhoneNumberID == "" {
+		log.Fatal("Meta WhatsApp credentials are required")
+	}
+
+	whatsappService := service.NewMetaWhatsAppService(
+		env.MetaWhatsAppAccessToken,
+		env.MetaWhatsAppPhoneNumberID,
+	)
+	log.Println("Meta WhatsApp Service initialized successfully")
 
 	r := gin.Default()
 
@@ -46,8 +62,8 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// ✅ Pass only telegramService (no SMS service)
-	route.Setup(env, timeout, db, r, medicalProfessionalRepo, otpRepo, telegramService)
+	// Pass all services to route setup including passwordResetRepo
+	route.Setup(env, timeout, db, r, medicalProfessionalRepo, otpRepo, telegramService, whatsappService, telegramRepo, passwordResetRepo)
 
 	if err := r.Run(env.LocalServerPort); err != nil {
 		log.Fatalf("Failed to start the server: %v", err)

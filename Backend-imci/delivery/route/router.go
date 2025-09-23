@@ -1,11 +1,13 @@
 package route
 
 import (
+	"log"
 	"time"
 
 	"github.com/Afomiat/Digital-IMCI/config"
-	"github.com/Afomiat/Digital-IMCI/delivery/controller"
+	"github.com/Afomiat/Digital-IMCI/delivery/middleware"
 	"github.com/Afomiat/Digital-IMCI/domain"
+	"github.com/Afomiat/Digital-IMCI/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,19 +19,41 @@ func Setup(
 	r *gin.Engine,
 	medicalProfessionalRepo domain.MedicalProfessionalRepository,
 	otpRepo domain.OtpRepository,
-	telegramService domain.TelegramService, // Only Telegram, no SMS
+	telegramService domain.TelegramService,
+	whatsappService domain.WhatsAppService,
+	telegramRepo domain.TelegramRepository,
+	passwordResetRepo domain.PasswordResetRepository,
 ) {
-	PublicRout := r.Group("")
+	// Initialize Redis blacklist (optional - can be nil if not using Redis)
+	var blacklistRepo domain.TokenBlacklistRepository
+	if env.RedisURL != "" {
+		redisRepo, err := repository.NewRedisTokenBlacklist(env.RedisURL)
+		if err != nil {
+			log.Printf("Warning: Redis blacklist not available: %v", err)
+		} else {
+			blacklistRepo = redisRepo
+			defer redisRepo.Close()
+		}
+	}
+
+	// Create auth middleware with blacklist support
+	authMiddleware := middleware.NewAuthMiddleware(env, blacklistRepo).Handler()
 	
-	// Create Telegram controller
-	telegramController := controller.NewTelegramController(telegramService)
+	// Public routes
+	public := r.Group("/api/v1")
+	NewSignUpRouter(env, timeout, db, public, medicalProfessionalRepo, otpRepo, telegramService, whatsappService, telegramRepo)
+	NewLoginRouter(env, timeout, db, public, medicalProfessionalRepo)
 	
-	// Setup signup routes
-	NewSignUpRouter(env, timeout, db, PublicRout, medicalProfessionalRepo, otpRepo, telegramService)
+	// Add password reset routes
+	NewPasswordResetRouter(env, timeout, db, public, medicalProfessionalRepo, telegramRepo, telegramService, whatsappService, passwordResetRepo)
 	
-	// Setup login routes  
-	NewLoginRouter(env, timeout, db, PublicRout, medicalProfessionalRepo)
+	// Protected routes
+	protected := r.Group("/api/v1")
+	protected.Use(authMiddleware)
 	
-	// ✅ Add Telegram utility routes
-	PublicRout.GET("/telegram/start-link", telegramController.GetStartLink)
+	// Add patient routes under protected group
+	NewPatientRouter(env, timeout, db, protected)
+	
+	// Logout routes
+	NewLogoutRouter(env, protected, blacklistRepo)
 }

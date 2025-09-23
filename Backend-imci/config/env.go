@@ -14,11 +14,17 @@ type Env struct {
 	ContextTimeout         int    `mapstructure:"CONTEXT_TIMEOUT"`
 	AccessTokenSecret      string `mapstructure:"ACCESS_TOKEN_SECRET"`
 	RefreshTokenSecret     string `mapstructure:"REFRESH_TOKEN_SECRET"`
-	AccessTokenExpiryHour  int    `mapstructure:"ACCESS_TOKEN_EXPIRY_HOUR"`
-	RefreshTokenExpiryHour int    `mapstructure:"REFRESH_TOKEN_EXPIRY_HOUR"`
-	
-	
-	TelegramBotToken  string `mapstructure:"TELEGRAM_BOT_TOKEN"`
+	AccessTokenExpiryMinute  int    `mapstructure:"ACCESS_TOKEN_EXPIRY_MINUTE"`
+	RefreshTokenExpiryDay int    `mapstructure:"REFRESH_TOKEN_EXPIRY_DAY"`
+
+	TelegramBotToken string `mapstructure:"TELEGRAM_BOT_TOKEN"`
+
+	MetaWhatsAppAccessToken      string `mapstructure:"META_WHATSAPP_ACCESS_TOKEN"`
+	MetaWhatsAppPhoneNumberID    string `mapstructure:"META_WHATSAPP_PHONE_NUMBER_ID"`
+	MetaWhatsAppBusinessAccountID string `mapstructure:"META_WHATSAPP_BUSINESS_ACCOUNT_ID"`
+
+	RedisURL string `mapstructure:"REDIS_URL"`
+
 }
 
 func NewEnv() *Env {
@@ -36,8 +42,6 @@ func NewEnv() *Env {
 	if err := viper.Unmarshal(&env); err != nil {
 		log.Fatalf("Environment can't be loaded: %v", err)
 	}
-
-	
 
 	return &env
 }
