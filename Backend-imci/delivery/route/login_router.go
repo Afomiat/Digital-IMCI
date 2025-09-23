@@ -24,5 +24,4 @@ func NewLoginRouter(
 
     Group.POST("/login", loginController.Login)
     Group.POST("/refresh-token", loginController.RefreshToken)
-    Group.POST("/logout", loginController.Logout)
 }

@@ -38,12 +38,23 @@ func (lc *LoginController) Login(c *gin.Context) {
     })
 }
 
+// controller/login_controller.go
 func (lc *LoginController) RefreshToken(c *gin.Context) {
-    // Implement refresh token endpoint
-    c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented"})
-}
+    var request domain.RefreshRequest
 
-func (lc *LoginController) Logout(c *gin.Context) {
-    // Implement logout endpoint
-    c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented"})
+    if err := c.ShouldBindJSON(&request); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    response, err := lc.LoginUsecase.RefreshToken(c.Request.Context(), request.RefreshToken)
+    if err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Token refreshed successfully",
+        "data":    response,
+    })
 }
