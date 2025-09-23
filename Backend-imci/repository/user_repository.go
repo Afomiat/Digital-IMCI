@@ -19,7 +19,6 @@ func NewMedicalProfessionalRepo(db *pgxpool.Pool) domain.MedicalProfessionalRepo
 	return &MedicalProfessionalRepo{db: db}
 }
 
-// Get medical professional by ID
 func (m *MedicalProfessionalRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.MedicalProfessional, error) {
 	professional := &domain.MedicalProfessional{}
 	query := `SELECT id, full_name, phone, password_hash, role,telegram_username, created_at, updated_at 
@@ -40,7 +39,6 @@ func (m *MedicalProfessionalRepo) GetByID(ctx context.Context, id uuid.UUID) (*d
 	return professional, nil
 }
 
-// Get medical professional by phone
 func (m *MedicalProfessionalRepo) GetByPhone(ctx context.Context, phone string) (*domain.MedicalProfessional, error) {
 	professional := &domain.MedicalProfessional{}
 	query := `SELECT id, full_name, phone, password_hash, role,telegram_username, created_at, updated_at 
@@ -61,7 +59,6 @@ func (m *MedicalProfessionalRepo) GetByPhone(ctx context.Context, phone string) 
 	return professional, nil
 }
 
-// Create medical professional
 func (m *MedicalProfessionalRepo) Create(ctx context.Context, professional *domain.MedicalProfessional) error {
 	query := `
 	INSERT INTO medical_professionals (full_name, phone, password_hash, role,telegram_username, created_at, updated_at)
@@ -85,7 +82,6 @@ func (m *MedicalProfessionalRepo) Create(ctx context.Context, professional *doma
 	return nil
 }
 
-// Update medical professional
 func (m *MedicalProfessionalRepo) Update(ctx context.Context, professional *domain.MedicalProfessional) error {
 	query := `
 	UPDATE medical_professionals 
@@ -107,7 +103,6 @@ func (m *MedicalProfessionalRepo) Update(ctx context.Context, professional *doma
 	return nil
 }
 
-// Delete medical professional
 func (m *MedicalProfessionalRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM medical_professionals WHERE id=$1`
 	_, err := m.db.Exec(ctx, query, id)
@@ -117,7 +112,6 @@ func (m *MedicalProfessionalRepo) Delete(ctx context.Context, id uuid.UUID) erro
 	return nil
 }
 
-// Get all medical professionals
 func (m *MedicalProfessionalRepo) GetAll(ctx context.Context) ([]*domain.MedicalProfessional, error) {
 	query := `SELECT id, full_name, phone, password_hash, role,telegram_username, created_at, updated_at 
 	          FROM medical_professionals`
