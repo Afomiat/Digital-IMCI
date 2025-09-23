@@ -1,27 +1,27 @@
-// delivery/route/login_router.go
 package route
 
 import (
-    "time"
+	"time"
 
-    "github.com/Afomiat/Digital-IMCI/config"
-    "github.com/Afomiat/Digital-IMCI/delivery/controller"
-    "github.com/Afomiat/Digital-IMCI/domain"
-    "github.com/Afomiat/Digital-IMCI/usecase"
-    "github.com/gin-gonic/gin"
-    "github.com/jackc/pgx/v5/pgxpool"
+	"github.com/Afomiat/Digital-IMCI/config"
+	"github.com/Afomiat/Digital-IMCI/delivery/controller"
+	"github.com/Afomiat/Digital-IMCI/domain"
+	"github.com/Afomiat/Digital-IMCI/usecase"
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func NewLoginRouter(
-    env *config.Env,
-    timeout time.Duration,
-    db *pgxpool.Pool,
-    Group *gin.RouterGroup,
-    medicalProfessionalRepo domain.MedicalProfessionalRepository,
+	env *config.Env,
+	timeout time.Duration,
+	db *pgxpool.Pool,
+	group *gin.RouterGroup,
+	medicalProfessionalRepo domain.MedicalProfessionalRepository,
 ) {
-    loginUsecase := usecase.NewLoginUsecase(medicalProfessionalRepo, timeout, env)
-    loginController := controller.NewLoginController(loginUsecase)
+	// Login doesn't need OTP, Telegram, or WhatsApp services
+	loginUsecase := usecase.NewLoginUsecase(medicalProfessionalRepo, timeout, env)
+	loginController := controller.NewLoginController(loginUsecase)
 
-    Group.POST("/login", loginController.Login)
-    Group.POST("/refresh-token", loginController.RefreshToken)
+	group.POST("/login", loginController.Login)
+	group.POST("/refresh-token", loginController.RefreshToken)
 }

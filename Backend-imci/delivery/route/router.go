@@ -17,14 +17,10 @@ func Setup(
 	timeout time.Duration,
 	db *pgxpool.Pool,
 	r *gin.Engine,
-	medicalProfessionalRepo domain.MedicalProfessionalRepository,
-	otpRepo domain.OtpRepository,
-	telegramService domain.TelegramService,
-	whatsappService domain.WhatsAppService,
-	telegramRepo domain.TelegramRepository,
-	passwordResetRepo domain.PasswordResetRepository,
 ) {
-	// Initialize Redis blacklist (optional - can be nil if not using Redis)
+	// Initialize repositories that are shared across multiple routers
+	medicalProfessionalRepo := repository.NewMedicalProfessionalRepo(db)
+	
 	var blacklistRepo domain.TokenBlacklistRepository
 	if env.RedisURL != "" {
 		redisRepo, err := repository.NewRedisTokenBlacklist(env.RedisURL)
@@ -36,24 +32,16 @@ func Setup(
 		}
 	}
 
-	// Create auth middleware with blacklist support
 	authMiddleware := middleware.NewAuthMiddleware(env, blacklistRepo).Handler()
 	
-	// Public routes
 	public := r.Group("/api/v1")
-	NewSignUpRouter(env, timeout, db, public, medicalProfessionalRepo, otpRepo, telegramService, whatsappService, telegramRepo)
-	NewLoginRouter(env, timeout, db, public, medicalProfessionalRepo)
-	
-	// Add password reset routes
-	NewPasswordResetRouter(env, timeout, db, public, medicalProfessionalRepo, telegramRepo, telegramService, whatsappService, passwordResetRepo)
-	
-	// Protected routes
 	protected := r.Group("/api/v1")
 	protected.Use(authMiddleware)
 	
-	// Add patient routes under protected group
+	// Setup individual routers with their specific dependencies
+	NewSignUpRouter(env, timeout, db, public, medicalProfessionalRepo)
+	NewLoginRouter(env, timeout, db, public, medicalProfessionalRepo)
+	NewPasswordResetRouter(env, timeout, db, public, medicalProfessionalRepo)
 	NewPatientRouter(env, timeout, db, protected)
-	
-	// Logout routes
 	NewLogoutRouter(env, protected, blacklistRepo)
 }
