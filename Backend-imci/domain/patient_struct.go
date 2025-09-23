@@ -16,3 +16,16 @@ type Patient struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+type CreatePatientRequest struct {
+	Name        string `json:"name" binding:"required"`
+	DateOfBirth string `json:"date_of_birth" binding:"required"` 
+	Gender      string `json:"gender" binding:"required"`
+	IsOffline   bool   `json:"is_offline"`
+}
+
+type UpdatePatientRequest struct {
+	Name        string `json:"name" binding:"required"`
+	DateOfBirth string `json:"date_of_birth" binding:"required"` 
+	Gender      string `json:"gender" binding:"required"`
+	IsOffline   bool   `json:"is_offline"`
+}

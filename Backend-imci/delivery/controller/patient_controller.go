@@ -19,29 +19,16 @@ func NewPatientController(patientUsecase domain.PatientUsecase) *PatientControll
 	}
 }
 
-type CreatePatientRequest struct {
-	Name        string `json:"name" binding:"required"`
-	DateOfBirth string `json:"date_of_birth" binding:"required"` // Change to string
-	Gender      string `json:"gender" binding:"required"`
-	IsOffline   bool   `json:"is_offline"`
-}
 
-type UpdatePatientRequest struct {
-	Name        string `json:"name" binding:"required"`
-	DateOfBirth string `json:"date_of_birth" binding:"required"` // Change to string
-	Gender      string `json:"gender" binding:"required"`
-	IsOffline   bool   `json:"is_offline"`
-}
 
 func (pc *PatientController) CreatePatient(c *gin.Context) {
-	var request CreatePatientRequest
+	var request domain.CreatePatientRequest
 
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Parse the date string to time.Time
 	dateOfBirth, err := time.Parse("2006-01-02", request.DateOfBirth)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format. Use YYYY-MM-DD"})
@@ -107,13 +94,12 @@ func (pc *PatientController) UpdatePatient(c *gin.Context) {
 		return
 	}
 
-	var request UpdatePatientRequest
+	var request domain.UpdatePatientRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Parse the date string to time.Time
 	dateOfBirth, err := time.Parse("2006-01-02", request.DateOfBirth)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format. Use YYYY-MM-DD"})
