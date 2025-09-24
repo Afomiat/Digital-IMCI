@@ -11,8 +11,7 @@ import (
 type PatientRepository interface {
 	Create(ctx context.Context, patient *Patient) error
 	GetByID(ctx context.Context, id uuid.UUID) (*Patient, error)
-	GetAll(ctx context.Context) ([]*Patient, error)
+	GetAll(ctx context.Context, page, perPage int) ([]*Patient, int, error)
 	Update(ctx context.Context, patient *Patient) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
-

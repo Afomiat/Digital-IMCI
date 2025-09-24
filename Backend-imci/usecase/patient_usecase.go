@@ -1,3 +1,4 @@
+// usecase/patient_usecase.go
 package usecase
 
 import (
@@ -29,19 +30,8 @@ func (pu *PatientUsecase) CreatePatient(ctx context.Context, patient *domain.Pat
 	defer cancel()
 
 	// Validate required fields
-	if patient.Name == "" {
-		return fmt.Errorf("patient name is required")
-	}
-	if patient.Gender == "" {
-		return fmt.Errorf("patient gender is required")
-	}
-	if patient.DateOfBirth.IsZero() {
-		return fmt.Errorf("patient date of birth is required")
-	}
-
-	// Set default values
-	if patient.IsOffline {
-		patient.IsOffline = false
+	if err := pu.validatePatient(patient); err != nil {
+		return err
 	}
 
 	return pu.patientRepo.Create(ctx, patient)
@@ -54,52 +44,57 @@ func (pu *PatientUsecase) GetPatient(ctx context.Context, id uuid.UUID) (*domain
 	return pu.patientRepo.GetByID(ctx, id)
 }
 
-func (pu *PatientUsecase) GetAllPatients(ctx context.Context) ([]*domain.Patient, error) {
+func (pu *PatientUsecase) GetAllPatients(ctx context.Context, page, perPage int) ([]*domain.Patient, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, pu.contextTimeout)
 	defer cancel()
 
-	return pu.patientRepo.GetAll(ctx)
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 10
+	}
+
+	return pu.patientRepo.GetAll(ctx, page, perPage)
 }
 
 func (pu *PatientUsecase) UpdatePatient(ctx context.Context, patient *domain.Patient) error {
 	ctx, cancel := context.WithTimeout(ctx, pu.contextTimeout)
 	defer cancel()
 
-	// Check if patient exists
-	existingPatient, err := pu.patientRepo.GetByID(ctx, patient.ID)
-	if err != nil {
-		return fmt.Errorf("patient not found: %w", err)
-	}
-
 	// Validate required fields
-	if patient.Name == "" {
-		return fmt.Errorf("patient name is required")
-	}
-	if patient.Gender == "" {
-		return fmt.Errorf("patient gender is required")
-	}
-	if patient.DateOfBirth.IsZero() {
-		return fmt.Errorf("patient date of birth is required")
+	if err := pu.validatePatient(patient); err != nil {
+		return err
 	}
 
-	// Update only allowed fields
-	existingPatient.Name = patient.Name
-	existingPatient.DateOfBirth = patient.DateOfBirth
-	existingPatient.Gender = patient.Gender
-	existingPatient.IsOffline = patient.IsOffline
-
-	return pu.patientRepo.Update(ctx, existingPatient)
+	return pu.patientRepo.Update(ctx, patient)
 }
 
 func (pu *PatientUsecase) DeletePatient(ctx context.Context, id uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(ctx, pu.contextTimeout)
 	defer cancel()
 
-	// Check if patient exists
-	_, err := pu.patientRepo.GetByID(ctx, id)
-	if err != nil {
-		return fmt.Errorf("patient not found: %w", err)
+	return pu.patientRepo.Delete(ctx, id)
+}
+
+func (pu *PatientUsecase) validatePatient(patient *domain.Patient) error {
+	if patient.Name == "" {
+		return domain.ErrNameRequired
+	}
+	
+	if patient.DateOfBirth.IsZero() {
+		return domain.ErrInvalidDateOfBirth
+	}
+	
+	// Validate date is not in the future
+	if patient.DateOfBirth.After(time.Now()) {
+		return fmt.Errorf("date of birth cannot be in the future: %w", domain.ErrInvalidDateOfBirth)
 	}
 
-	return pu.patientRepo.Delete(ctx, id)
+	// Validate gender enum
+	if !patient.Gender.IsValid() {
+		return fmt.Errorf("%s: %w", patient.Gender, domain.ErrInvalidGender)
+	}
+
+	return nil
 }
