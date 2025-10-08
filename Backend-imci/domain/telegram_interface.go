@@ -6,6 +6,9 @@ type TelegramService interface {
     SendOTP(ctx context.Context, telegramUsername, code string) error
 	GetStartLink() string
 	SendPasswordResetOTP(ctx context.Context, username, otpCode string) error
+	StartPolling() error
+	StopPolling()
+	IsRunning() bool
 
 }
 

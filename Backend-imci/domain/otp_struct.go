@@ -7,6 +7,8 @@ type OTP struct {
 	ID        string    `json:"id"`
 	Phone     string    `json:"phone"`
 	Code      string    `json:"code"`
+	Role      string    `json:"role,omitempty"`
+	FacilityName string    `json:"facility_name,omitempty"`
 	FullName  string    `json:"full_name" `
 	Password  string    `json:"password"`
 	CreatedAt time.Time `json:"created_at"`

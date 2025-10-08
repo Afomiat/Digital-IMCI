@@ -1,0 +1,510 @@
+{
+  "start_node": "check_very_severe_disease",
+  "nodes": {
+    "check_very_severe_disease": {
+      "id": "check_very_severe_disease",
+      "type": "multiple_choice",
+      "question": "Check for Very Severe Disease - Assess the young infant:",
+      "instruction": "Select ALL signs present",
+      "options": [
+        {
+          "value": "unable_to_feed",
+          "text": "Unable to feed"
+        },
+        {
+          "value": "convulsing_now",
+          "text": "Convulsing now or history of convulsions"
+        },
+        {
+          "value": "no_movement",
+          "text": "No movement even when stimulated"
+        },
+        {
+          "value": "movement_only_stimulated",
+          "text": "Movement only when stimulated"
+        },
+        {
+          "value": "fast_breathing_under_7days",
+          "text": "Fast breathing (≥60/min) and infant <7 days old"
+        },
+        {
+          "value": "severe_chest_indrawing",
+          "text": "Severe chest indrawing"
+        },
+        {
+          "value": "fever",
+          "text": "Fever (≥37.5°C)"
+        },
+        {
+          "value": "low_temp",
+          "text": "Low body temperature (<35.5°C)"
+        },
+        {
+          "value": "none_severe",
+          "text": "None of the above severe signs"
+        }
+      ],
+      "rules": [
+        {
+          "condition": "any_selected",
+          "selected_options": ["unable_to_feed", "convulsing_now", "no_movement"],
+          "next_node": "classify_critical_illness"
+        },
+        {
+          "condition": "any_selected",
+          "selected_options": ["movement_only_stimulated", "fast_breathing_under_7days", "severe_chest_indrawing", "fever", "low_temp"],
+          "next_node": "classify_very_severe_disease"
+        },
+        {
+          "condition": "none_selected",
+          "selected_options": ["none_severe"],
+          "next_node": "check_pneumonia"
+        }
+      ]
+    },
+
+    "classify_critical_illness": {
+      "id": "classify_critical_illness",
+      "type": "classification",
+      "classification": {
+        "color": "PINK",
+        "name": "CRITICAL ILLNESS",
+        "treatment_plan": {
+          "requires_referral": true,
+          "urgency": "IMMEDIATE",
+          "pre_referral_treatments": [
+            "Give first dose IM Ampicillin and Gentamicin",
+            "Keep infant warm during transport",
+            "Refer URGENTLY to hospital"
+          ]
+        }
+      }
+    },
+
+    "classify_very_severe_disease": {
+      "id": "classify_very_severe_disease",
+      "type": "classification",
+      "classification": {
+        "color": "PINK",
+        "name": "VERY SEVERE DISEASE",
+        "treatment_plan": {
+          "requires_referral": true,
+          "urgency": "URGENT",
+          "pre_referral_treatments": [
+            "Give first dose IM Ampicillin and Gentamicin",
+            "Treat to prevent low blood sugar",
+            "Keep infant warm",
+            "Refer URGENTLY to hospital"
+          ]
+        }
+      }
+    },
+
+    "check_pneumonia": {
+      "id": "check_pneumonia",
+      "type": "multiple_choice",
+      "question": "Check for Pneumonia - Respiratory assessment:",
+      "instruction": "Select ALL that apply",
+      "options": [
+        {
+          "value": "fast_breathing",
+          "text": "Fast breathing (≥60/min) and infant ≥7 days old"
+        },
+        {
+          "value": "chest_indrawing",
+          "text": "Chest indrawing"
+        },
+        {
+          "value": "none_respiratory",
+          "text": "No respiratory signs"
+        }
+      ],
+      "rules": [
+        {
+          "condition": "any_selected",
+          "selected_options": ["fast_breathing", "chest_indrawing"],
+          "next_node": "classify_pneumonia"
+        },
+        {
+          "condition": "none_selected",
+          "selected_options": ["none_respiratory"],
+          "next_node": "check_local_infection"
+        }
+      ]
+    },
+
+    "classify_pneumonia": {
+      "id": "classify_pneumonia",
+      "type": "classification",
+      "classification": {
+        "color": "YELLOW",
+        "name": "PNEUMONIA",
+        "treatment_plan": {
+          "requires_referral": false,
+          "drugs": [
+            {
+              "name": "Amoxicillin",
+              "dosage": "based on weight",
+              "duration": "7 days"
+            }
+          ],
+          "follow_up": "2 days"
+        }
+      }
+    },
+
+    "check_local_infection": {
+      "id": "check_local_infection",
+      "type": "multiple_choice",
+      "question": "Check for Local Bacterial Infection:",
+      "instruction": "Select ALL that apply",
+      "options": [
+        {
+          "value": "umbilicus_red",
+          "text": "Umbilicus red or draining pus"
+        },
+        {
+          "value": "skin_pustules",
+          "text": "Skin pustules"
+        },
+        {
+          "value": "none_local",
+          "text": "No local infection signs"
+        }
+      ],
+      "rules": [
+        {
+          "condition": "any_selected",
+          "selected_options": ["umbilicus_red", "skin_pustules"],
+          "next_node": "classify_local_infection"
+        },
+        {
+          "condition": "none_selected",
+          "selected_options": ["none_local"],
+          "next_node": "check_jaundice"
+        }
+      ]
+    },
+
+    "classify_local_infection": {
+      "id": "classify_local_infection",
+      "type": "classification",
+      "classification": {
+        "color": "YELLOW",
+        "name": "LOCAL BACTERIAL INFECTION",
+        "treatment_plan": {
+          "requires_referral": false,
+          "drugs": [
+            {
+              "name": "Amoxicillin",
+              "dosage": "based on weight", 
+              "duration": "5 days"
+            }
+          ],
+          "follow_up": "2 days"
+        }
+      }
+    },
+
+    "check_jaundice": {
+      "id": "check_jaundice",
+      "type": "multiple_choice",
+      "question": "Check for Jaundice:",
+      "instruction": "Select ALL that apply",
+      "options": [
+        {
+          "value": "palms_soles_yellow",
+          "text": "Palms and/or soles yellow"
+        },
+        {
+          "value": "skin_eyes_yellow_under_24h",
+          "text": "Skin and eyes yellow and age <24 hours"
+        },
+        {
+          "value": "skin_eyes_yellow_over_14days",
+          "text": "Skin and eyes yellow and age ≥14 days"
+        },
+        {
+          "value": "face_eyes_yellow",
+          "text": "Only face or eyes yellow, age 24 hours-14 days"
+        },
+        {
+          "value": "no_jaundice",
+          "text": "No jaundice signs"
+        }
+      ],
+      "rules": [
+        {
+          "condition": "any_selected",
+          "selected_options": ["palms_soles_yellow", "skin_eyes_yellow_under_24h", "skin_eyes_yellow_over_14days"],
+          "next_node": "classify_severe_jaundice"
+        },
+        {
+          "condition": "any_selected",
+          "selected_options": ["face_eyes_yellow"],
+          "next_node": "classify_jaundice"
+        },
+        {
+          "condition": "none_selected",
+          "selected_options": ["no_jaundice"],
+          "next_node": "check_diarrhea"
+        }
+      ]
+    },
+
+    "classify_severe_jaundice": {
+      "id": "classify_severe_jaundice",
+      "type": "classification",
+      "classification": {
+        "color": "PINK", 
+        "name": "SEVERE JAUNDICE",
+        "treatment_plan": {
+          "requires_referral": true,
+          "urgency": "URGENT",
+          "pre_referral_treatments": [
+            "Treat to prevent low blood sugar",
+            "Keep infant warm",
+            "Refer URGENTLY to hospital"
+          ]
+        }
+      }
+    },
+
+    "classify_jaundice": {
+      "id": "classify_jaundice",
+      "type": "classification",
+      "classification": {
+        "color": "YELLOW",
+        "name": "JAUNDICE",
+        "treatment_plan": {
+          "requires_referral": false,
+          "instructions": [
+            "Advise mother to check for yellow palms/soles daily",
+            "Return immediately if palms/soles appear yellow",
+            "Follow-up in 2 days"
+          ]
+        }
+      }
+    },
+
+    "check_diarrhea": {
+      "id": "check_diarrhea",
+      "type": "yes_no",
+      "question": "Does the young infant have diarrhea?",
+      "rules": [
+        {
+          "condition": "yes",
+          "next_node": "assess_diarrhea_dehydration"
+        },
+        {
+          "condition": "no",
+          "next_node": "check_feeding_problem"
+        }
+      ]
+    },
+
+    "assess_diarrhea_dehydration": {
+      "id": "assess_diarrhea_dehydration",
+      "type": "multiple_choice",
+      "question": "Assess Diarrhea for Dehydration:",
+      "instruction": "Select ALL that apply",
+      "options": [
+        {
+          "value": "movement_only_stimulated",
+          "text": "Movement only when stimulated"
+        },
+        {
+          "value": "no_movement",
+          "text": "No movement even when stimulated"
+        },
+        {
+          "value": "sunken_eyes",
+          "text": "Sunken eyes"
+        },
+        {
+          "value": "skin_pinch_very_slow",
+          "text": "Skin pinch goes back very slowly (>2 seconds)"
+        },
+        {
+          "value": "restless_irritable",
+          "text": "Restless, irritable"
+        },
+        {
+          "value": "skin_pinch_slow",
+          "text": "Skin pinch goes back slowly"
+        },
+        {
+          "value": "no_dehydration",
+          "text": "No dehydration signs"
+        }
+      ],
+      "rules": [
+        {
+          "condition": "any_selected",
+          "selected_options": ["no_movement", "sunken_eyes", "skin_pinch_very_slow"],
+          "next_node": "classify_severe_dehydration"
+        },
+        {
+          "condition": "any_selected",
+          "selected_options": ["movement_only_stimulated", "restless_irritable", "skin_pinch_slow"],
+          "next_node": "classify_some_dehydration"
+        },
+        {
+          "condition": "none_selected",
+          "selected_options": ["no_dehydration"],
+          "next_node": "classify_no_dehydration"
+        }
+      ]
+    },
+
+    "classify_severe_dehydration": {
+      "id": "classify_severe_dehydration",
+      "type": "classification",
+      "classification": {
+        "color": "PINK",
+        "name": "SEVERE DEHYDRATION",
+        "treatment_plan": {
+          "requires_referral": true,
+          "urgency": "URGENT",
+          "pre_referral_treatments": [
+            "Give ORS on the way if possible",
+            "Continue breastfeeding",
+            "Keep infant warm",
+            "Refer URGENTLY to hospital"
+          ]
+        }
+      }
+    },
+
+    "classify_some_dehydration": {
+      "id": "classify_some_dehydration",
+      "type": "classification",
+      "classification": {
+        "color": "YELLOW",
+        "name": "SOME DEHYDRATION",
+        "treatment_plan": {
+          "requires_referral": false,
+          "treatment": "Plan B - ORS for some dehydration",
+          "drugs": [
+            {
+              "name": "Zinc sulfate",
+              "dosage": "10-14 days based on age"
+            }
+          ],
+          "follow_up": "2 days"
+        }
+      }
+    },
+
+    "classify_no_dehydration": {
+      "id": "classify_no_dehydration",
+      "type": "classification",
+      "classification": {
+        "color": "GREEN",
+        "name": "NO DEHYDRATION",
+        "treatment_plan": {
+          "requires_referral": false,
+          "treatment": "Plan A - Home care",
+          "drugs": [
+            {
+              "name": "Zinc sulfate",
+              "dosage": "10-14 days based on age"
+            }
+          ],
+          "follow_up": "5 days if not improving"
+        }
+      }
+    },
+
+    "check_feeding_problem": {
+      "id": "check_feeding_problem",
+      "type": "multiple_choice",
+      "question": "Check for Feeding Problem or Underweight:",
+      "instruction": "Select ALL that apply",
+      "options": [
+        {
+          "value": "not_well_positioned",
+          "text": "Not well positioned for breastfeeding"
+        },
+        {
+          "value": "not_well_attached",
+          "text": "Not well attached to breast"
+        },
+        {
+          "value": "not_suckling_effectively",
+          "text": "Not suckling effectively"
+        },
+        {
+          "value": "less_8_feeds",
+          "text": "Less than 8 breastfeeds in 24 hours"
+        },
+        {
+          "value": "other_foods",
+          "text": "Receives other foods or drinks"
+        },
+        {
+          "value": "thrush",
+          "text": "Thrush (ulcers or white patches in mouth)"
+        },
+        {
+          "value": "underweight",
+          "text": "Weight for age < -2Z (Underweight)"
+        },
+        {
+          "value": "no_feeding_problem",
+          "text": "No feeding problem"
+        }
+      ],
+      "rules": [
+        {
+          "condition": "any_selected",
+          "selected_options": ["not_well_positioned", "not_well_attached", "not_suckling_effectively", "less_8_feeds", "other_foods", "thrush", "underweight"],
+          "next_node": "classify_feeding_problem"
+        },
+        {
+          "condition": "none_selected",
+          "selected_options": ["no_feeding_problem"],
+          "next_node": "classify_no_severe_disease"
+        }
+      ]
+    },
+
+    "classify_feeding_problem": {
+      "id": "classify_feeding_problem",
+      "type": "classification",
+      "classification": {
+        "color": "YELLOW",
+        "name": "FEEDING PROBLEM OR UNDERWEIGHT",
+        "treatment_plan": {
+          "requires_referral": false,
+          "instructions": [
+            "Counsel on proper breastfeeding technique",
+            "Teach correct positioning and attachment",
+            "Advise exclusive breastfeeding",
+            "Treat thrush if present",
+            "Follow-up in 2 days for feeding problem",
+            "Follow-up in 14 days for underweight"
+          ]
+        }
+      }
+    },
+
+    "classify_no_severe_disease": {
+      "id": "classify_no_severe_disease",
+      "type": "classification",
+      "classification": {
+        "color": "GREEN",
+        "name": "NO SEVERE DISEASE",
+        "treatment_plan": {
+          "requires_referral": false,
+          "instructions": [
+            "Advise mother on home care",
+            "Keep infant warm",
+            "Continue breastfeeding",
+            "Advise when to return immediately"
+          ]
+        }
+      }
+    }
+  }
+}

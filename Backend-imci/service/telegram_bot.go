@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -17,31 +18,68 @@ type telegramBotService struct {
 	telegramRepo domain.TelegramRepository
 	otpRepo      domain.OtpRepository
 	botUsername  string
+	token        string
+	isRunning    bool
+	mu           sync.RWMutex
 }
 
 func NewTelegramBotService(token string, telegramRepo domain.TelegramRepository, otpRepo domain.OtpRepository) (domain.TelegramService, error) {
+	// Don't initialize the bot immediately, just store the token
+	service := &telegramBotService{
+		token:        token,
+		telegramRepo: telegramRepo,
+		otpRepo:      otpRepo,
+		isRunning:    false,
+	}
+
+	// Initialize bot API but don't start polling yet
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Telegram bot: %w", err)
 	}
 
 	bot.Debug = true
-	log.Printf("Authorized on Telegram account %s", bot.Self.UserName)
+	service.bot = bot
+	service.botUsername = bot.Self.UserName
 
-	service := &telegramBotService{
-		bot:          bot,
-		telegramRepo: telegramRepo,
-		otpRepo:      otpRepo,
-		botUsername:  bot.Self.UserName,
-	}
-
-	go service.startPolling()
+	log.Printf("Telegram bot service created for account %s (polling not started)", service.botUsername)
 
 	return service, nil
 }
 
-func (t *telegramBotService) GetStartLink() string {
-	return fmt.Sprintf("https://t.me/%s", t.botUsername)
+func (t *telegramBotService) StartPolling() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.isRunning {
+		return nil // Already running
+	}
+
+	if t.bot == nil {
+		return fmt.Errorf("bot not initialized")
+	}
+
+	go t.startPolling()
+	t.isRunning = true
+	log.Println("Started Telegram bot polling...")
+	return nil
+}
+
+func (t *telegramBotService) StopPolling() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.bot != nil {
+		t.bot.StopReceivingUpdates()
+		t.isRunning = false
+		log.Println("Stopped Telegram bot polling")
+	}
+}
+
+func (t *telegramBotService) IsRunning() bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.isRunning
 }
 
 func (t *telegramBotService) startPolling() {
@@ -49,10 +87,14 @@ func (t *telegramBotService) startPolling() {
 	u.Timeout = 60
 	updates := t.bot.GetUpdatesChan(u)
 
-	log.Println("Started Telegram bot polling...")
 	for update := range updates {
 		t.handleUpdate(update)
 	}
+}
+
+// Rest of your existing methods remain the same...
+func (t *telegramBotService) GetStartLink() string {
+	return fmt.Sprintf("https://t.me/%s", t.botUsername)
 }
 
 func (t *telegramBotService) handleUpdate(update tgbotapi.Update) {
@@ -78,6 +120,7 @@ func (t *telegramBotService) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 }
+
 
 func (t *telegramBotService) handleStartCommand(update tgbotapi.Update) {
 
@@ -227,7 +270,6 @@ func (t *telegramBotService) SendOTP(ctx context.Context, telegramUsername, code
 	return nil
 }
 
-// Add this method to your existing telegramBotService
 func (t *telegramBotService) SendPasswordResetOTP(ctx context.Context, telegramUsername, code string) error {
 	if len(telegramUsername) > 0 && telegramUsername[0] == '@' {
 		telegramUsername = telegramUsername[1:]

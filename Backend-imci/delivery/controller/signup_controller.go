@@ -10,6 +10,7 @@ import (
 	"github.com/Afomiat/Digital-IMCI/config"
 	"github.com/Afomiat/Digital-IMCI/domain"
 	"github.com/gin-gonic/gin"
+	
 )
 
 // var tempSignupData = struct {
@@ -20,19 +21,64 @@ import (
 // }
 
 type SignupController struct {
-	SignupUsecase domain.SignupUsecase
-	TelegramRepo  domain.TelegramRepository
-	env           *config.Env
+	SignupUsecase   domain.SignupUsecase
+	TelegramRepo    domain.TelegramRepository
+	TelegramService domain.TelegramService
+	env             *config.Env
 }
 
-func NewSignupController(signupUsecase domain.SignupUsecase, telegramRepo domain.TelegramRepository, env *config.Env) *SignupController {
+func NewSignupController(signupUsecase domain.SignupUsecase, telegramRepo domain.TelegramRepository, env *config.Env, telegramService domain.TelegramService) *SignupController {
 	return &SignupController{
-		SignupUsecase: signupUsecase,
-		TelegramRepo:  telegramRepo, 
-		env:           env,
+		SignupUsecase:   signupUsecase,
+		TelegramRepo:    telegramRepo, 
+		TelegramService: telegramService,
+		env:             env,
 	}
 }
 
+// Add these methods to your controller
+func (sc *SignupController) StartTelegramBot(ctx *gin.Context) {
+	if sc.TelegramService == nil {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Telegram service not configured",
+		})
+		return
+	}
+
+	if sc.TelegramService.IsRunning() {
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": "Telegram bot is already running",
+		})
+		return
+	}
+
+	err := sc.TelegramService.StartPolling()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to start Telegram bot: " + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Telegram bot started successfully",
+	})
+}
+
+func (sc *SignupController) StopTelegramBot(ctx *gin.Context) {
+	if sc.TelegramService == nil {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Telegram service not configured",
+		})
+		return
+	}
+
+	sc.TelegramService.StopPolling()
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Telegram bot stopped successfully",
+	})
+}
 func (sc *SignupController) Signup(ctx *gin.Context) {
 	log.Println("1. Signup endpoint called")
 
@@ -44,15 +90,19 @@ func (sc *SignupController) Signup(ctx *gin.Context) {
 	}
 
 	log.Println("2. Form parsed for phone:", form.Phone)
-
-	// Check if phone already exists
+	
+	if sc.TelegramService != nil && !sc.TelegramService.IsRunning() && !form.UseWhatsApp {
+			err := sc.TelegramService.StartPolling()
+			if err != nil {
+				log.Printf("Warning: Failed to start Telegram bot: %v", err)
+			}
+		}
 	existingProfessional, _ := sc.SignupUsecase.GetMedicalProfessionalByPhone(ctx, form.Phone)
 	if existingProfessional != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Phone number already registered!"})
 		return
 	}
 
-	// AUTO-DETECT TELEGRAM: Check if this phone has a linked Telegram account
 	var usingTelegram bool
 	var telegramUsername string
 
@@ -67,14 +117,12 @@ func (sc *SignupController) Signup(ctx *gin.Context) {
 		}
 	}
 
-	// Validate OTP method selection
 	if !usingTelegram && !form.UseWhatsApp {
-		// Telegram not linked - return linking instructions
 		ctx.JSON(http.StatusOK, gin.H{
 			"status": "telegram_linking_required",
 			"message": "Please link your Telegram account to receive OTP",
 			"telegram_link": fmt.Sprintf("https://t.me/%s?start=%s", 
-				"DigitalIMCIBot", // Replace with actual bot username
+				"DigitalIMCIBot", 
 				url.QueryEscape(form.Phone)),
 			"phone": form.Phone,
 		})
@@ -91,13 +139,13 @@ func (sc *SignupController) Signup(ctx *gin.Context) {
 	professional := &domain.MedicalProfessional{
 		FullName:    form.FullName,
 		Phone:       form.Phone,
-		PasswordHash: form.Password, // Plain password; will be hashed in usecase
-		Role:        form.Role,
+		Role: 	  form.Role,
+		FacilityName: form.FacilityName,
+		PasswordHash: form.Password, 
 		UseWhatsApp: form.UseWhatsApp,
 	}
 
 	fmt.Println("7. Professional object created************************:", professional.FullName)
-	// Set Telegram username if auto-detected
 	if usingTelegram {
 		professional.TelegramUsername = telegramUsername
 	}
@@ -111,7 +159,6 @@ func (sc *SignupController) Signup(ctx *gin.Context) {
 	}
 	log.Println("6. SendOtp completed successfully")
 
-	// Return which method was used
 	response := gin.H{"message": "OTP sent successfully"}
 	if usingTelegram {
 		response["method"] = "telegram"
@@ -142,9 +189,10 @@ func (sc *SignupController) Verify(ctx *gin.Context) {
         FullName: OtpResponse.FullName,
         Phone:    OtpResponse.Phone,
         Password: OtpResponse.Password,
+		Role: OtpResponse.Role,
+		FacilityName: OtpResponse.FacilityName,
     }
-
-	// Register the user automatically after successful verification
+	fmt.Printf("**********Verified OTP for phone %s, full name: %s\n", OtpResponse.Role, OtpResponse.FacilityName)
 	professionalID, err := sc.SignupUsecase.RegisterMedicalProfessional(ctx, &user)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Registration failed: " + err.Error()})

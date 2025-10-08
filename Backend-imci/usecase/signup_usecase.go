@@ -62,6 +62,8 @@ func (su *SignupUsecase) RegisterMedicalProfessional(ctx context.Context, form *
 		Phone:        form.Phone,
 		PasswordHash: hashedPass,
 		Role:         form.Role,
+		UseWhatsApp:  form.UseWhatsApp,
+		FacilityName: form.FacilityName,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -75,7 +77,6 @@ func (su *SignupUsecase) RegisterMedicalProfessional(ctx context.Context, form *
 }
 
 
-// usecase/signup_usecase.go - Update the SendOtp method
 func (su *SignupUsecase) SendOtp(ctx context.Context, professional *domain.MedicalProfessional) error {
 	log.Printf("SendOtp called for professional: %+v", professional)
 	
@@ -101,12 +102,14 @@ func (su *SignupUsecase) SendOtp(ctx context.Context, professional *domain.Medic
 	otp := domain.OTP{
 		FullName: professional.FullName,
 		Phone:     professional.Phone,
+		Role:      professional.Role,
+		FacilityName: professional.FacilityName,
 		Code:      userutil.GenerateOTP(),
-		Password:  professional.PasswordHash, // Store hashed password
+		Password:  professional.PasswordHash, 
 		CreatedAt: time.Now(),
 		ExpiresAt: time.Now().Add(time.Minute * 5),
 	}
-
+	fmt.Printf("***************Generated new OTP: %s for phone: %s\n", otp.Role, otp.FacilityName)
 	log.Printf("Generated new OTP: %s for phone: %s", otp.Code, otp.Phone)
 
 	if err := su.otpRepo.SaveOTP(ctx, &otp); err != nil {
@@ -173,4 +176,3 @@ func (su *SignupUsecase) VerifyOtp(ctx context.Context, otp *domain.VerifyOtp) (
 	return storedOTP, nil
 }
 
-// usecase/signup_usecase.go

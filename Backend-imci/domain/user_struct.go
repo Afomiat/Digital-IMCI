@@ -15,6 +15,7 @@ type MedicalProfessional struct {
 	Role         string    `json:"role"`
 	TelegramUsername string    `json:"telegram_username"` 
 	UseWhatsApp   bool      `json:"use_whatsapp"`
+	FacilityName    string    `json:"facility_name,omitempty" db:"facility_name"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -39,8 +40,9 @@ type SignupForm struct {
 	Phone    string `json:"phone" binding:"required"`
 	Password string `json:"password" binding:"required"`
 	Role     string `json:"role" binding:"required"`
-	// TelegramUsername string `json:"telegram_username"`
 	UseWhatsApp   bool   `json:"use_whatsapp"` 
+	FacilityName    string    `json:"facility_name,omitempty" db:"facility_name"`
+
 	
 }
 

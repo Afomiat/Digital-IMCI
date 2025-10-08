@@ -21,8 +21,11 @@ func NewMedicalProfessionalRepo(db *pgxpool.Pool) domain.MedicalProfessionalRepo
 
 func (m *MedicalProfessionalRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.MedicalProfessional, error) {
 	professional := &domain.MedicalProfessional{}
-	query := `SELECT id, full_name, phone, password_hash, role,telegram_username, created_at, updated_at 
-	          FROM medical_professionals WHERE id=$1`
+	query := `
+		SELECT id, full_name, phone, password_hash, role, telegram_username, use_whatsapp, facility_name, created_at, updated_at 
+		FROM medical_professionals 
+		WHERE id=$1
+	`
 	err := m.db.QueryRow(ctx, query, id).Scan(
 		&professional.ID,
 		&professional.FullName,
@@ -30,6 +33,8 @@ func (m *MedicalProfessionalRepo) GetByID(ctx context.Context, id uuid.UUID) (*d
 		&professional.PasswordHash,
 		&professional.Role,
 		&professional.TelegramUsername,
+		&professional.UseWhatsApp,
+		&professional.FacilityName,
 		&professional.CreatedAt,
 		&professional.UpdatedAt,
 	)
@@ -41,8 +46,11 @@ func (m *MedicalProfessionalRepo) GetByID(ctx context.Context, id uuid.UUID) (*d
 
 func (m *MedicalProfessionalRepo) GetByPhone(ctx context.Context, phone string) (*domain.MedicalProfessional, error) {
 	professional := &domain.MedicalProfessional{}
-	query := `SELECT id, full_name, phone, password_hash, role,telegram_username, created_at, updated_at 
-	          FROM medical_professionals WHERE phone=$1`
+	query := `
+		SELECT id, full_name, phone, password_hash, role, telegram_username, use_whatsapp, facility_name, created_at, updated_at 
+		FROM medical_professionals 
+		WHERE phone=$1
+	`
 	err := m.db.QueryRow(ctx, query, phone).Scan(
 		&professional.ID,
 		&professional.FullName,
@@ -50,6 +58,8 @@ func (m *MedicalProfessionalRepo) GetByPhone(ctx context.Context, phone string) 
 		&professional.PasswordHash,
 		&professional.Role,
 		&professional.TelegramUsername,
+		&professional.UseWhatsApp,
+		&professional.FacilityName,
 		&professional.CreatedAt,
 		&professional.UpdatedAt,
 	)
@@ -61,21 +71,24 @@ func (m *MedicalProfessionalRepo) GetByPhone(ctx context.Context, phone string) 
 
 func (m *MedicalProfessionalRepo) Create(ctx context.Context, professional *domain.MedicalProfessional) error {
 	query := `
-	INSERT INTO medical_professionals (full_name, phone, password_hash, role,telegram_username, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7)
-	RETURNING id
+		INSERT INTO medical_professionals 
+		(full_name, phone, password_hash, role, telegram_username, use_whatsapp, facility_name, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id
 	`
-	
+
 	err := m.db.QueryRow(ctx, query,
 		professional.FullName,
 		professional.Phone,
 		professional.PasswordHash,
 		professional.Role,
 		professional.TelegramUsername,
+		professional.UseWhatsApp,
+		professional.FacilityName,
 		time.Now(),
 		time.Now(),
 	).Scan(&professional.ID)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to create medical professional: %w", err)
 	}
@@ -84,9 +97,10 @@ func (m *MedicalProfessionalRepo) Create(ctx context.Context, professional *doma
 
 func (m *MedicalProfessionalRepo) Update(ctx context.Context, professional *domain.MedicalProfessional) error {
 	query := `
-	UPDATE medical_professionals 
-	SET full_name=$1, phone=$2, password_hash=$3, role=$4, telegram_username=$5, updated_at=$6 
-	WHERE id=$7
+		UPDATE medical_professionals 
+		SET full_name=$1, phone=$2, password_hash=$3, role=$4, telegram_username=$5, 
+		    use_whatsapp=$6, facility_name=$7, updated_at=$8 
+		WHERE id=$9
 	`
 	_, err := m.db.Exec(ctx, query,
 		professional.FullName,
@@ -94,6 +108,8 @@ func (m *MedicalProfessionalRepo) Update(ctx context.Context, professional *doma
 		professional.PasswordHash,
 		professional.Role,
 		professional.TelegramUsername,
+		professional.UseWhatsApp,
+		professional.FacilityName,
 		time.Now(),
 		professional.ID,
 	)
@@ -113,8 +129,10 @@ func (m *MedicalProfessionalRepo) Delete(ctx context.Context, id uuid.UUID) erro
 }
 
 func (m *MedicalProfessionalRepo) GetAll(ctx context.Context) ([]*domain.MedicalProfessional, error) {
-	query := `SELECT id, full_name, phone, password_hash, role,telegram_username, created_at, updated_at 
-	          FROM medical_professionals`
+	query := `
+		SELECT id, full_name, phone, password_hash, role, telegram_username, use_whatsapp, facility_name, created_at, updated_at 
+		FROM medical_professionals
+	`
 	rows, err := m.db.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all medical professionals: %w", err)
@@ -131,6 +149,8 @@ func (m *MedicalProfessionalRepo) GetAll(ctx context.Context) ([]*domain.Medical
 			&professional.PasswordHash,
 			&professional.Role,
 			&professional.TelegramUsername,
+			&professional.UseWhatsApp,
+			&professional.FacilityName,
 			&professional.CreatedAt,
 			&professional.UpdatedAt,
 		); err != nil {
@@ -138,10 +158,10 @@ func (m *MedicalProfessionalRepo) GetAll(ctx context.Context) ([]*domain.Medical
 		}
 		professionals = append(professionals, &professional)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating medical professionals: %w", err)
 	}
-	
+
 	return professionals, nil
 }

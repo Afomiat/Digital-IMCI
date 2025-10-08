@@ -18,7 +18,6 @@ func Setup(
 	db *pgxpool.Pool,
 	r *gin.Engine,
 ) {
-	// Initialize repositories that are shared across multiple routers
 	medicalProfessionalRepo := repository.NewMedicalProfessionalRepo(db)
 	
 	var blacklistRepo domain.TokenBlacklistRepository
@@ -38,10 +37,11 @@ func Setup(
 	protected := r.Group("/api/v1")
 	protected.Use(authMiddleware)
 	
-	// Setup individual routers with their specific dependencies
 	NewSignUpRouter(env, timeout, db, public, medicalProfessionalRepo)
 	NewLoginRouter(env, timeout, db, public, medicalProfessionalRepo)
 	NewPasswordResetRouter(env, timeout, db, public, medicalProfessionalRepo)
 	NewPatientRouter(env, timeout, db, protected)
 	NewLogoutRouter(env, protected, blacklistRepo)
+	NewAssessmentRouter(env, timeout, db, protected)
+
 }

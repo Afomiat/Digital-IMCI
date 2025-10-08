@@ -62,7 +62,6 @@ func (pu *PatientUsecase) UpdatePatient(ctx context.Context, patient *domain.Pat
 	ctx, cancel := context.WithTimeout(ctx, pu.contextTimeout)
 	defer cancel()
 
-	// Validate required fields
 	if err := pu.validatePatient(patient); err != nil {
 		return err
 	}

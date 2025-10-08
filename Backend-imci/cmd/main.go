@@ -26,8 +26,7 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// Pass only env, timeout, and db to route setup
-	// Each router will instantiate its own dependencies
+
 	route.Setup(env, timeout, db, r)
 
 	if err := r.Run(env.LocalServerPort); err != nil {
