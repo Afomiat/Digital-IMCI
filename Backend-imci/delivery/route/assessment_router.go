@@ -74,7 +74,26 @@ func NewAssessmentRouter(
 		assessmentGroup.DELETE("/:id", assessmentController.DeleteAssessment) 
 		
 		if ruleEngineController != nil && ruleEngineUsecase != nil {
-			// New endpoint to get assessment tree
+			// NEW: List all available assessment trees
+			assessmentGroup.GET("/trees", func(c *gin.Context) {
+				trees := []map[string]string{
+					{
+						"id":          "birth_asphyxia_check",
+						"title":       "Check for Birth Asphyxia",
+						"description": "Assess newborn for birth asphyxia and provide immediate resuscitation if needed",
+					},
+					{
+						"id":          "very_severe_disease_check", 
+						"title":       "Check for Very Severe Disease",
+						"description": "Assess young infants (0-2 months) for very severe disease and local bacterial infection",
+					},
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"trees": trees,
+				})
+			})
+			
+			// Individual tree endpoints
 			assessmentGroup.GET("/tree/birth_asphyxia", func(c *gin.Context) {
 				tree, err := ruleEngineUsecase.GetAssessmentTree("birth_asphyxia_check")
 				if err != nil {
@@ -90,10 +109,50 @@ func NewAssessmentRouter(
 				})
 			})
 			
+			assessmentGroup.GET("/tree/very_severe_disease", func(c *gin.Context) {
+				tree, err := ruleEngineUsecase.GetAssessmentTree("very_severe_disease_check")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to get assessment tree",
+						"message": err.Error(),
+						"code":    "internal_error",
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"tree": tree,
+				})
+			})
+			
+			// Assessment flow endpoints
 			assessmentGroup.POST("/:id/start-flow", ruleEngineController.StartAssessmentFlow)
 			assessmentGroup.POST("/:id/answer", ruleEngineController.SubmitAnswer)
 		} else {
 			// Fallback endpoints when rule engine is unavailable
+			assessmentGroup.GET("/trees", func(c *gin.Context) {
+				c.JSON(http.StatusServiceUnavailable, gin.H{
+					"error": "IMCI rule engine unavailable",
+					"message": "Rule engine failed to initialize. Check server logs.",
+					"code": "rule_engine_unavailable",
+				})
+			})
+			
+			assessmentGroup.GET("/tree/birth_asphyxia", func(c *gin.Context) {
+				c.JSON(http.StatusServiceUnavailable, gin.H{
+					"error": "IMCI rule engine unavailable",
+					"message": "Rule engine failed to initialize. Check server logs.",
+					"code": "rule_engine_unavailable",
+				})
+			})
+			
+			assessmentGroup.GET("/tree/very_severe_disease", func(c *gin.Context) {
+				c.JSON(http.StatusServiceUnavailable, gin.H{
+					"error": "IMCI rule engine unavailable",
+					"message": "Rule engine failed to initialize. Check server logs.",
+					"code": "rule_engine_unavailable",
+				})
+			})
+			
 			assessmentGroup.POST("/:id/start-flow", func(c *gin.Context) {
 				c.JSON(http.StatusServiceUnavailable, gin.H{
 					"error": "IMCI rule engine unavailable",
@@ -101,6 +160,7 @@ func NewAssessmentRouter(
 					"code": "rule_engine_unavailable",
 				})
 			})
+			
 			assessmentGroup.POST("/:id/answer", func(c *gin.Context) {
 				c.JSON(http.StatusServiceUnavailable, gin.H{
 					"error": "IMCI rule engine unavailable",

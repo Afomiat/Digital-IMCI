@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Afomiat/Digital-IMCI/domain"
@@ -44,7 +45,6 @@ func NewRuleEngineUsecase(
 	}
 }
 
-// FIXED: Add AssessmentID back but without JSON tag since it comes from URL
 type StartFlowRequest struct {
 	AssessmentID uuid.UUID
 	TreeID       string `json:"tree_id" binding:"required"`
@@ -57,7 +57,6 @@ type StartFlowResponse struct {
 	CurrentNode string                     `json:"current_node"`
 }
 
-// FIXED: Remove AssessmentID from JSON tag since it comes from URL
 type SubmitAnswerRequest struct {
 	AssessmentID uuid.UUID
 	NodeID       string      `json:"node_id" binding:"required"`
@@ -77,19 +76,16 @@ func (uc *RuleEngineUsecase) StartAssessmentFlow(ctx context.Context, req StartF
 	ctx, cancel := context.WithTimeout(ctx, uc.contextTimeout)
 	defer cancel()
 
-	// Verify assessment exists and belongs to medical professional
 	assessment, err := uc.assessmentRepo.GetByID(ctx, req.AssessmentID, medicalProfessionalID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Start flow in rule engine
 	flow, err := uc.ruleEngine.StartAssessmentFlow(req.AssessmentID, req.TreeID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Save initial flow state
 	medicalProfessionalAnswer := &domain.MedicalProfessionalAnswer{
 		ID:                 uuid.New(),
 		AssessmentID:       req.AssessmentID,
@@ -104,13 +100,11 @@ func (uc *RuleEngineUsecase) StartAssessmentFlow(ctx context.Context, req StartF
 		return nil, fmt.Errorf("failed to save assessment flow: %w", err)
 	}
 
-	// Update assessment status
 	assessment.Status = domain.StatusInProgress
 	if err := uc.assessmentRepo.Update(ctx, assessment); err != nil {
 		return nil, fmt.Errorf("failed to update assessment status: %w", err)
 	}
 
-	// Get current question
 	currentQuestion, err := uc.ruleEngine.GetCurrentQuestion(flow)
 	if err != nil {
 		return nil, err
@@ -128,39 +122,38 @@ func (uc *RuleEngineUsecase) SubmitAnswer(ctx context.Context, req SubmitAnswerR
 	ctx, cancel := context.WithTimeout(ctx, uc.contextTimeout)
 	defer cancel()
 
-	// Verify assessment exists and belongs to medical professional
 	assessment, err := uc.assessmentRepo.GetByID(ctx, req.AssessmentID, medicalProfessionalID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get existing flow
 	medicalProfessionalAnswer, err := uc.medicalProfessionalAnswerRepo.GetByAssessmentID(ctx, req.AssessmentID)
 	if err != nil {
 		return nil, domain.ErrMedicalProfessionalAnswerNotFound
 	}
 
-	// Reconstruct flow from saved data
 	flow := &ruleenginedomain.AssessmentFlow{
 		AssessmentID: req.AssessmentID,
+		TreeID:       medicalProfessionalAnswer.QuestionSetVersion, 
 		Answers:      map[string]interface{}(medicalProfessionalAnswer.Answers),
 		Status:       ruleenginedomain.FlowStatusInProgress,
 		CreatedAt:    medicalProfessionalAnswer.CreatedAt,
 		UpdatedAt:    medicalProfessionalAnswer.UpdatedAt,
 	}
 
-	// Set current node from request or use stored one
 	if flow.CurrentNode == "" {
-		flow.CurrentNode = "check_birth_asphyxia"
+		tree, err := uc.ruleEngine.GetAssessmentTree(flow.TreeID)
+		if err != nil {
+			return nil, err
+		}
+		flow.CurrentNode = tree.StartNode
 	}
 
-	// Submit answer to rule engine
 	updatedFlow, nextQuestion, err := uc.ruleEngine.SubmitAnswer(flow, req.NodeID, req.Answer)
 	if err != nil {
 		return nil, err
 	}
 
-	// Update stored flow
 	medicalProfessionalAnswer.Answers = domain.JSONB(updatedFlow.Answers)
 	medicalProfessionalAnswer.UpdatedAt = time.Now()
 
@@ -168,7 +161,6 @@ func (uc *RuleEngineUsecase) SubmitAnswer(ctx context.Context, req SubmitAnswerR
 		return nil, fmt.Errorf("failed to update assessment flow: %w", err)
 	}
 
-	// If flow is complete, save classification and update assessment
 	if updatedFlow.Status == ruleenginedomain.FlowStatusCompleted || updatedFlow.Status == ruleenginedomain.FlowStatusEmergency {
 		if err := uc.saveClassificationResults(ctx, assessment, updatedFlow.Classification); err != nil {
 			return nil, fmt.Errorf("failed to save classification results: %w", err)
@@ -195,17 +187,16 @@ func (uc *RuleEngineUsecase) saveClassificationResults(ctx context.Context, asse
 		return nil
 	}
 
-	// Save classification
 	class := &domain.Classification{
 		ID:                    uuid.New(),
 		AssessmentID:          assessment.ID,
 		Disease:               classification.Classification,
 		Color:                 classification.Color,
 		Details:               classification.TreatmentPlan,
-		RuleVersion:           "birth_asphyxia_v1",
+		RuleVersion:           "imci_2021_v1", 
 		IsCriticalIllness:     classification.Emergency,
 		RequiresUrgentReferral: classification.Emergency,
-		TreatmentPriority:     1,
+		TreatmentPriority:     uc.getTreatmentPriority(classification.Classification),
 		CreatedAt:             time.Now(),
 	}
 
@@ -213,7 +204,10 @@ func (uc *RuleEngineUsecase) saveClassificationResults(ctx context.Context, asse
 		return err
 	}
 
-	// Save counseling/advice
+	if err := uc.saveTreatmentPlans(ctx, class, classification); err != nil {
+		return err
+	}
+
 	counseling := &domain.Counseling{
 		ID:           uuid.New(),
 		AssessmentID: assessment.ID,
@@ -227,19 +221,107 @@ func (uc *RuleEngineUsecase) saveClassificationResults(ctx context.Context, asse
 		return err
 	}
 
-	// Save follow-up as additional counseling
-	followUpCounseling := &domain.Counseling{
-		ID:           uuid.New(),
-		AssessmentID: assessment.ID,
-		AdviceType:   "follow_up_schedule",
-		Details:      fmt.Sprintf("Follow-up schedule: %v", classification.FollowUp),
-		Language:     "en",
-		CreatedAt:    time.Now(),
+	if len(classification.FollowUp) > 0 {
+		followUpCounseling := &domain.Counseling{
+			ID:           uuid.New(),
+			AssessmentID: assessment.ID,
+			AdviceType:   "follow_up_schedule",
+			Details:      fmt.Sprintf("Follow-up schedule: %v", strings.Join(classification.FollowUp, ", ")),
+			Language:     "en",
+			CreatedAt:    time.Now(),
+		}
+		if err := uc.counselingRepo.Create(ctx, followUpCounseling); err != nil {
+			return err
+		}
 	}
 
-	return uc.counselingRepo.Create(ctx, followUpCounseling)
+	return nil
 }
 
+
+func (uc *RuleEngineUsecase) getTreatmentPriority(classification string) int {
+	switch classification {
+	case "CRITICAL ILLNESS", "VERY SEVERE DISEASE":
+		return 1 // Highest priority
+	case "PNEUMONIA", "LOCAL BACTERIAL INFECTION":
+		return 2 // Medium priority
+	default:
+		return 3 // Low priority
+	}
+}
+
+func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classification *domain.Classification, result *ruleenginedomain.ClassificationResult) error {
+	var plans []*domain.TreatmentPlan
+	
+	switch result.Classification {
+	case "CRITICAL ILLNESS", "VERY SEVERE DISEASE":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Ampicillin",
+				Dosage:              "First dose",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "IM/IV",
+				IsPreReferral:       true,
+				Instructions:        "Give before referral to hospital",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Gentamicin",
+				Dosage:              "First dose",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "IM/IV",
+				IsPreReferral:       true,
+				Instructions:        "Give before referral to hospital",
+			},
+		}
+	case "PNEUMONIA":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Ampicillin",
+				Dosage:              "Based on weight",
+				Frequency:           "Twice daily",
+				Duration:            "7 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Complete full course of antibiotics",
+			},
+		}
+	case "LOCAL BACTERIAL INFECTION":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Ampicillin",
+				Dosage:              "Based on weight",
+				Frequency:           "Twice daily",
+				Duration:            "5 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Teach mother to treat local infections at home",
+			},
+		}
+	}
+
+	// Save all treatment plans
+	for _, plan := range plans {
+		if err := uc.treatmentPlanRepo.Create(ctx, plan); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 func (uc *RuleEngineUsecase) GetAssessmentTree(treeID string) (*ruleenginedomain.AssessmentTree, error) {
 	return uc.ruleEngine.GetAssessmentTree(treeID)
 }

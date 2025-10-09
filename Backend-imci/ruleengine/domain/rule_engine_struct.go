@@ -9,6 +9,7 @@ import (
 
 type AssessmentFlow struct {
 	AssessmentID       uuid.UUID              `json:"assessment_id"`
+	TreeID             string                 `json:"tree_id"`
 	CurrentNode        string                 `json:"current_node"`
 	Status             FlowStatus             `json:"status"`
 	Answers            map[string]interface{} `json:"answers"`
@@ -36,14 +37,16 @@ type ClassificationResult struct {
 }
 
 type Question struct {
-	NodeID       string            `json:"node_id"`
-	Question     string            `json:"question"`
-	QuestionType string            `json:"question_type"`
-	Required     bool              `json:"required"`
-	Level        int               `json:"level"`
-	ParentNode   string            `json:"parent_node,omitempty"`
-	ShowCondition string           `json:"show_condition,omitempty"`
-	Answers      map[string]Answer `json:"answers"`
+	NodeID         string            `json:"node_id"`
+	Question       string            `json:"question"`
+	QuestionType   string            `json:"question_type"` // yes_no, single_choice, number_input, classification
+	Required       bool              `json:"required"`
+	Level          int               `json:"level"`
+	ParentNode     string            `json:"parent_node,omitempty"`
+	ShowCondition  string            `json:"show_condition,omitempty"`
+	Instructions   string            `json:"instructions,omitempty"`    // ADD THIS
+	Validation     *Validation       `json:"validation,omitempty"`      // ADD THIS
+	Answers        map[string]Answer `json:"answers"`
 }
 
 type Answer struct {
@@ -71,4 +74,11 @@ type Outcome struct {
 	TreatmentPlan  string   `json:"treatment_plan"`
 	FollowUp       []string `json:"follow_up"`
 	MotherAdvice   string   `json:"mother_advice"`
+	Notes          string   `json:"notes,omitempty"`
+}
+
+type Validation struct {
+	Min  float64 `json:"min,omitempty"`
+	Max  float64 `json:"max,omitempty"`
+	Step float64 `json:"step,omitempty"`
 }
