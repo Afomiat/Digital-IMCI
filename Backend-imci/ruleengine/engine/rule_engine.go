@@ -30,6 +30,7 @@ func NewRuleEngine() (*RuleEngine, error) {
 	
 	engine.RegisterAssessmentTree(GetBirthAsphyxiaTree())
 	engine.RegisterAssessmentTree(GetVerySevereDiseaseTree())
+	engine.RegisterAssessmentTree(GetJaundiceTree())
 	
 	return engine, nil
 }
@@ -110,6 +111,37 @@ func (re *RuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID string, a
 			return flow, nil, nil
 		}
 	}
+
+	if answerConfig.Classification == "AUTO_CLASSIFY" {
+    var finalClassification string
+    
+    switch flow.TreeID {
+    case "very_severe_disease_check":
+        finalClassification = re.classifyVerySevereDisease(flow.Answers)
+    case "jaundice_check":
+        finalClassification = re.classifyJaundice(flow.Answers) 
+    default:
+        finalClassification = "SEVERE_INFECTION_UNLIKELY"
+    }
+    
+    outcome, exists := tree.Outcomes[finalClassification]
+	if exists {
+		flow.Classification = &domain.ClassificationResult{
+			Classification: outcome.Classification,
+			Color:          outcome.Color,
+			Emergency:      outcome.Emergency,
+			Actions:        outcome.Actions,
+			TreatmentPlan:  outcome.TreatmentPlan,
+			FollowUp:       outcome.FollowUp,
+			MotherAdvice:   outcome.MotherAdvice,
+		}
+		flow.Status = domain.FlowStatusCompleted
+		if outcome.Emergency {
+			flow.Status = domain.FlowStatusEmergency
+		}
+		return flow, nil, nil
+	}
+}
 	
 	if answerConfig.Classification != "" {
 		outcome, exists := tree.Outcomes[answerConfig.Classification]
@@ -206,6 +238,37 @@ func (re *RuleEngine) classifyVerySevereDisease(answers map[string]interface{}) 
 	return "SEVERE_INFECTION_UNLIKELY"
 }
 
+func (re *RuleEngine) classifyJaundice(answers map[string]interface{}) string {
+	skinYellow := answers["skin_yellow"]
+	palmsSolesYellow := answers["palms_soles_yellow"]
+	age, _ := answers["infant_age"].(float64)
+	
+	hasJaundice := skinYellow == "yes"
+	hasSevereSigns := palmsSolesYellow == "yes"
+	
+	if !hasJaundice {
+		return "NO_JAUNDICE"
+	}
+	
+	if hasSevereSigns {
+		return "SEVERE_JAUNDICE_URGENT"
+	}
+	
+	// Age-based classification
+	if age < 1 { // < 24 hours
+		return "SEVERE_JAUNDICE_URGENT"
+	}
+	
+	if age >= 14 { // ≥14 days
+		return "SEVERE_JAUNDICE_URGENT"
+	}
+	
+	if age >= 1 && age < 14 { // 24 hours to 13 days
+		return "JAUNDICE"
+	}
+	
+	return "NO_JAUNDICE"
+}
 func (re *RuleEngine) validateAnswer(question *domain.Question, answer interface{}) error {
 	switch question.QuestionType {
 	case "number_input":

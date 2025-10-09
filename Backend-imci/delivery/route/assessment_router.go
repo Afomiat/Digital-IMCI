@@ -22,7 +22,6 @@ func NewAssessmentRouter(
 	db *pgxpool.Pool,
 	group *gin.RouterGroup,
 ) {
-	// Initialize all repositories
 	assessmentRepo := repository.NewAssessmentRepo(db)
 	patientRepo := repository.NewPatientRepo(db)
 	medicalProfessionalAnswerRepo := repository.NewMedicalProfessionalAnswerRepo(db)
@@ -31,10 +30,8 @@ func NewAssessmentRouter(
 	treatmentPlanRepo := repository.NewTreatmentPlanRepo(db)
 	counselingRepo := repository.NewCounselingRepo(db)
 
-	// Initialize usecases
 	assessmentUsecase := usecase.NewAssessmentUsecase(assessmentRepo, patientRepo, timeout)
 	
-	// Initialize rule engine with proper error handling
 	var ruleEngine *ruleengineengine.RuleEngine
 	var ruleEngineErr error
 	
@@ -74,7 +71,6 @@ func NewAssessmentRouter(
 		assessmentGroup.DELETE("/:id", assessmentController.DeleteAssessment) 
 		
 		if ruleEngineController != nil && ruleEngineUsecase != nil {
-			// NEW: List all available assessment trees
 			assessmentGroup.GET("/trees", func(c *gin.Context) {
 				trees := []map[string]string{
 					{
@@ -87,13 +83,33 @@ func NewAssessmentRouter(
 						"title":       "Check for Very Severe Disease",
 						"description": "Assess young infants (0-2 months) for very severe disease and local bacterial infection",
 					},
+					{
+						"id":          "jaundice_check",
+						"title":       "Check for Jaundice in Young Infant", 
+						"description": "Assess young infants (0-2 months) for jaundice and classify severity",
+					},
 				}
 				c.JSON(http.StatusOK, gin.H{
 					"trees": trees,
 				})
 			})
+
+			assessmentGroup.GET("/tree/jaundice", func(c *gin.Context) {
+				tree, err := ruleEngineUsecase.GetAssessmentTree("jaundice_check")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to get assessment tree",
+						"message": err.Error(),
+						"code":    "internal_error",
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"tree": tree,
+				})
+			})
 			
-			// Individual tree endpoints
+			
 			assessmentGroup.GET("/tree/birth_asphyxia", func(c *gin.Context) {
 				tree, err := ruleEngineUsecase.GetAssessmentTree("birth_asphyxia_check")
 				if err != nil {
@@ -124,11 +140,9 @@ func NewAssessmentRouter(
 				})
 			})
 			
-			// Assessment flow endpoints
 			assessmentGroup.POST("/:id/start-flow", ruleEngineController.StartAssessmentFlow)
 			assessmentGroup.POST("/:id/answer", ruleEngineController.SubmitAnswer)
 		} else {
-			// Fallback endpoints when rule engine is unavailable
 			assessmentGroup.GET("/trees", func(c *gin.Context) {
 				c.JSON(http.StatusServiceUnavailable, gin.H{
 					"error": "IMCI rule engine unavailable",

@@ -242,11 +242,11 @@ func (uc *RuleEngineUsecase) saveClassificationResults(ctx context.Context, asse
 func (uc *RuleEngineUsecase) getTreatmentPriority(classification string) int {
 	switch classification {
 	case "CRITICAL ILLNESS", "VERY SEVERE DISEASE":
-		return 1 // Highest priority
+		return 1
 	case "PNEUMONIA", "LOCAL BACTERIAL INFECTION":
-		return 2 // Medium priority
+		return 2
 	default:
-		return 3 // Low priority
+		return 3
 	}
 }
 
@@ -311,9 +311,23 @@ func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classificat
 				Instructions:        "Teach mother to treat local infections at home",
 			},
 		}
+	case "SEVERE JAUNDICE":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Glucose",
+				Dosage:              "Based on weight",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "Oral/NG",
+				IsPreReferral:       true,
+				Instructions:        "Treat to prevent low blood sugar before referral",
+			},
+		}
 	}
 
-	// Save all treatment plans
 	for _, plan := range plans {
 		if err := uc.treatmentPlanRepo.Create(ctx, plan); err != nil {
 			return err
