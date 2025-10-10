@@ -326,7 +326,108 @@ func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classificat
 				Instructions:        "Treat to prevent low blood sugar before referral",
 			},
 		}
+		case "SEVERE DISEASE - BLOOD IN STOOL": // ADD THIS
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Ampicillin",
+				Dosage:              "First dose IM",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "IM",
+				IsPreReferral:       true,
+				Instructions:        "Give before referral to hospital",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Gentamicin",
+				Dosage:              "First dose IM",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "IM",
+				IsPreReferral:       true,
+				Instructions:        "Give before referral to hospital",
+			},
+		}
+	case "SEVERE DEHYDRATION": 
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "ORS",
+				Dosage:              "Frequent sips",
+				Frequency:           "During transport",
+				Duration:            "Until hospital arrival",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       true,
+				Instructions:        "Give frequent sips during transport to hospital",
+			},
+		}
+	case "SOME DEHYDRATION", "PROLONGED DIARRHEA": 
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "ORS",
+				Dosage:              "Plan B",
+				Frequency:           "As directed",
+				Duration:            "Until diarrhea stops",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give for some dehydration",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Zinc sulfate",
+				Dosage:              "10-20mg daily",
+				Frequency:           "Once daily",
+				Duration:            "10-14 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give zinc supplement",
+			},
+		}
+	case "NO DEHYDRATION":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "ORS",
+				Dosage:              "Plan A",
+				Frequency:           "After each loose stool",
+				Duration:            "Until diarrhea stops",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give to treat diarrhea at home",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Zinc sulfate",
+				Dosage:              "10-20mg daily",
+				Frequency:           "Once daily",
+				Duration:            "10-14 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give zinc supplement",
+			},
+		}
+	
+
+
+		
 	}
+	
 
 	for _, plan := range plans {
 		if err := uc.treatmentPlanRepo.Create(ctx, plan); err != nil {

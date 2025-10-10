@@ -31,6 +31,7 @@ func NewRuleEngine() (*RuleEngine, error) {
 	engine.RegisterAssessmentTree(GetBirthAsphyxiaTree())
 	engine.RegisterAssessmentTree(GetVerySevereDiseaseTree())
 	engine.RegisterAssessmentTree(GetJaundiceTree())
+	engine.RegisterAssessmentTree(GetDiarrheaTree())
 	
 	return engine, nil
 }
@@ -92,8 +93,25 @@ func (re *RuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID string, a
 	answerConfig := question.Answers[answerStr]
 	
 	if answerConfig.Classification == "AUTO_CLASSIFY" {
-		finalClassification := re.classifyVerySevereDisease(flow.Answers)
+		var finalClassification string
+		
+		switch flow.TreeID {
+		case "very_severe_disease_check":
+			finalClassification = re.classifyVerySevereDisease(flow.Answers)
+		case "jaundice_check":
+			finalClassification = re.classifyJaundice(flow.Answers) 
+		case "diarrhea_check":
+			finalClassification = re.classifyDehydration(flow.Answers)
+			fmt.Printf("DEBUG: Diarrhea classification called, result: %s\n", finalClassification) // ADD THIS
+		default:
+			finalClassification = "SEVERE_INFECTION_UNLIKELY"
+		}
+		
+		fmt.Printf("DEBUG: TreeID=%s, Classification=%s\n", flow.TreeID, finalClassification) // ADD THIS
+		
 		outcome, exists := tree.Outcomes[finalClassification]
+    	fmt.Printf("DEBUG: Outcome exists=%v\n", exists) // ADD THIS
+    
 		if exists {
 			flow.Classification = &domain.ClassificationResult{
 				Classification: outcome.Classification,
@@ -111,39 +129,8 @@ func (re *RuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID string, a
 			return flow, nil, nil
 		}
 	}
-
-	if answerConfig.Classification == "AUTO_CLASSIFY" {
-    var finalClassification string
-    
-    switch flow.TreeID {
-    case "very_severe_disease_check":
-        finalClassification = re.classifyVerySevereDisease(flow.Answers)
-    case "jaundice_check":
-        finalClassification = re.classifyJaundice(flow.Answers) 
-    default:
-        finalClassification = "SEVERE_INFECTION_UNLIKELY"
-    }
-    
-    outcome, exists := tree.Outcomes[finalClassification]
-	if exists {
-		flow.Classification = &domain.ClassificationResult{
-			Classification: outcome.Classification,
-			Color:          outcome.Color,
-			Emergency:      outcome.Emergency,
-			Actions:        outcome.Actions,
-			TreatmentPlan:  outcome.TreatmentPlan,
-			FollowUp:       outcome.FollowUp,
-			MotherAdvice:   outcome.MotherAdvice,
-		}
-		flow.Status = domain.FlowStatusCompleted
-		if outcome.Emergency {
-			flow.Status = domain.FlowStatusEmergency
-		}
-		return flow, nil, nil
-	}
-}
 	
-	if answerConfig.Classification != "" {
+	if answerConfig.Classification != "" && answerConfig.Classification != "AUTO_CLASSIFY" {
 		outcome, exists := tree.Outcomes[answerConfig.Classification]
 		if exists {
 			flow.Classification = &domain.ClassificationResult{
@@ -172,6 +159,7 @@ func (re *RuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID string, a
 	flow.Status = domain.FlowStatusCompleted
 	return flow, nil, nil
 }
+	
 
 
 func (re *RuleEngine) GetCurrentQuestion(flow *domain.AssessmentFlow) (*domain.Question, error) {
@@ -254,59 +242,50 @@ func (re *RuleEngine) classifyJaundice(answers map[string]interface{}) string {
 		return "SEVERE_JAUNDICE_URGENT"
 	}
 	
-	// Age-based classification
-	if age < 1 { // < 24 hours
+	if age < 1 { 
 		return "SEVERE_JAUNDICE_URGENT"
 	}
 	
-	if age >= 14 { // ≥14 days
+	if age >= 14 {
 		return "SEVERE_JAUNDICE_URGENT"
 	}
 	
-	if age >= 1 && age < 14 { // 24 hours to 13 days
+	if age >= 1 && age < 14 { 
 		return "JAUNDICE"
 	}
 	
 	return "NO_JAUNDICE"
 }
-func (re *RuleEngine) validateAnswer(question *domain.Question, answer interface{}) error {
-	switch question.QuestionType {
-	case "number_input":
-		if question.Validation != nil {
-			floatVal, ok := answer.(float64)
-			if !ok {
-				switch v := answer.(type) {
-				case int:
-					floatVal = float64(v)
-				case string:
-					var err error
-					if floatVal, err = stringToFloat(v); err != nil {
-						return fmt.Errorf("invalid number format: %v", answer)
-					}
-				default:
-					return fmt.Errorf("expected number, got %T", answer)
-				}
-			}
-			
-			if question.Validation.Min != 0 && floatVal < question.Validation.Min {
-				return fmt.Errorf("value %v is below minimum %v", floatVal, question.Validation.Min)
-			}
-			if question.Validation.Max != 0 && floatVal > question.Validation.Max {
-				return fmt.Errorf("value %v is above maximum %v", floatVal, question.Validation.Max)
-			}
-		}
-	case "yes_no":
-		answerStr := fmt.Sprintf("%v", answer)
-		if answerStr != "yes" && answerStr != "no" {
-			return fmt.Errorf("expected 'yes' or 'no', got %v", answer)
-		}
-	case "single_choice":
-		answerStr := fmt.Sprintf("%v", answer)
-		if _, exists := question.Answers[answerStr]; !exists {
-			return fmt.Errorf("invalid choice: %v", answer)
-		}
-	}
-	return nil
+
+func (re *RuleEngine) classifyDehydration(answers map[string]interface{}) string {
+    movementCondition := answers["movement_condition"]
+    skinPinch := answers["skin_pinch"]
+    otherSevere := answers["assess_other_severe"]
+    
+    var severity string
+    if movementCondition == "no_movement_even_when_stimulated" || skinPinch == "very_slowly_more_than_2_seconds" {
+        severity = "SEVERE_DEHYDRATION"
+    } else if skinPinch == "slowly" {
+        severity = "SOME_DEHYDRATION"
+    } else {
+        return "NO_DEHYDRATION"
+    }
+    
+    if otherSevere == "yes" {
+        if severity == "SEVERE_DEHYDRATION" {
+            return "SEVERE_DEHYDRATION_WITH_OTHER_SEVERE"
+        } else if severity == "SOME_DEHYDRATION" {
+            return "SOME_DEHYDRATION_WITH_OTHER_SEVERE"
+        }
+    } else {
+        if severity == "SEVERE_DEHYDRATION" {
+            return "SEVERE_DEHYDRATION_ALONE"
+        } else if severity == "SOME_DEHYDRATION" {
+            return "SOME_DEHYDRATION_ALONE"
+        }
+    }
+    
+    return "NO_DEHYDRATION"
 }
 
 func (re *RuleEngine) formatAnswer(question *domain.Question, answer interface{}) string {

@@ -71,28 +71,48 @@ func NewAssessmentRouter(
 		assessmentGroup.DELETE("/:id", assessmentController.DeleteAssessment) 
 		
 		if ruleEngineController != nil && ruleEngineUsecase != nil {
-			assessmentGroup.GET("/trees", func(c *gin.Context) {
-				trees := []map[string]string{
-					{
-						"id":          "birth_asphyxia_check",
-						"title":       "Check for Birth Asphyxia",
-						"description": "Assess newborn for birth asphyxia and provide immediate resuscitation if needed",
-					},
-					{
-						"id":          "very_severe_disease_check", 
-						"title":       "Check for Very Severe Disease",
-						"description": "Assess young infants (0-2 months) for very severe disease and local bacterial infection",
-					},
-					{
-						"id":          "jaundice_check",
-						"title":       "Check for Jaundice in Young Infant", 
-						"description": "Assess young infants (0-2 months) for jaundice and classify severity",
-					},
-				}
-				c.JSON(http.StatusOK, gin.H{
-					"trees": trees,
-				})
+		assessmentGroup.GET("/trees", func(c *gin.Context) {
+			trees := []map[string]string{
+				{
+					"id":          "birth_asphyxia_check",
+					"title":       "Check for Birth Asphyxia",
+					"description": "Assess newborn for birth asphyxia and provide immediate resuscitation if needed",
+				},
+				{
+					"id":          "very_severe_disease_check", 
+					"title":       "Check for Very Severe Disease",
+					"description": "Assess young infants (0-2 months) for very severe disease and local bacterial infection",
+				},
+				{
+					"id":          "jaundice_check",
+					"title":       "Check for Jaundice in Young Infant", 
+					"description": "Assess young infants (0-2 months) for jaundice and classify severity",
+				},
+				{
+					"id":          "diarrhea_check",
+					"title":       "Check for Diarrhea and Dehydration",
+					"description": "Assess young infants for diarrhea and classify dehydration severity",
+				},
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"trees": trees,
 			})
+		})
+
+		assessmentGroup.GET("/tree/diarrhea", func(c *gin.Context) {
+			tree, err := ruleEngineUsecase.GetAssessmentTree("diarrhea_check")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error":   "Failed to get assessment tree",
+					"message": err.Error(),
+					"code":    "internal_error",
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"tree": tree,
+			})
+		})
 
 			assessmentGroup.GET("/tree/jaundice", func(c *gin.Context) {
 				tree, err := ruleEngineUsecase.GetAssessmentTree("jaundice_check")
