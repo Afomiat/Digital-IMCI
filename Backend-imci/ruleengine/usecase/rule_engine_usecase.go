@@ -422,6 +422,48 @@ func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classificat
 				Instructions:        "Give zinc supplement",
 			},
 		}
+	case "FEEDING PROBLEM OR UNDERWEIGHT": // ADD THIS CASE
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Breastfeeding Counseling",
+				Dosage:              "N/A",
+				Frequency:           "As needed",
+				Duration:            "Until resolved",
+				AdministrationRoute: "Counseling",
+				IsPreReferral:       false,
+				Instructions:        "Teach correct positioning and attachment",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Nutritional Support",
+				Dosage:              "N/A",
+				Frequency:           "Daily",
+				Duration:            "Until weight improves",
+				AdministrationRoute: "Dietary",
+				IsPreReferral:       false,
+				Instructions:        "Increase feeding frequency and ensure adequate nutrition",
+			},
+		}
+		if strings.Contains(result.MotherAdvice, "thrush") {
+			plans = append(plans, &domain.TreatmentPlan{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Nystatin",
+				Dosage:              "As prescribed",
+				Frequency:           "As directed",
+				Duration:            "7-14 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Treat oral thrush",
+			})
+		}
+	
 	
 
 

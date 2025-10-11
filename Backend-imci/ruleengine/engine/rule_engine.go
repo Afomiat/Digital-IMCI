@@ -32,6 +32,8 @@ func NewRuleEngine() (*RuleEngine, error) {
 	engine.RegisterAssessmentTree(GetVerySevereDiseaseTree())
 	engine.RegisterAssessmentTree(GetJaundiceTree())
 	engine.RegisterAssessmentTree(GetDiarrheaTree())
+	engine.RegisterAssessmentTree(GetFeedingProblemUnderweightTree())
+
 	
 	return engine, nil
 }
@@ -102,15 +104,18 @@ func (re *RuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID string, a
 			finalClassification = re.classifyJaundice(flow.Answers) 
 		case "diarrhea_check":
 			finalClassification = re.classifyDehydration(flow.Answers)
-			fmt.Printf("DEBUG: Diarrhea classification called, result: %s\n", finalClassification) // ADD THIS
+			fmt.Printf("DEBUG: Diarrhea classification called, result: %s\n", finalClassification)
+		case "feeding_problem_underweight_check": 
+			finalClassification = re.classifyFeedingProblem(flow.Answers)
+			fmt.Printf("DEBUG: Feeding problem classification called, result: %s\n", finalClassification)
 		default:
 			finalClassification = "SEVERE_INFECTION_UNLIKELY"
 		}
 		
-		fmt.Printf("DEBUG: TreeID=%s, Classification=%s\n", flow.TreeID, finalClassification) // ADD THIS
+		fmt.Printf("DEBUG: TreeID=%s, Classification=%s\n", flow.TreeID, finalClassification) 
 		
 		outcome, exists := tree.Outcomes[finalClassification]
-    	fmt.Printf("DEBUG: Outcome exists=%v\n", exists) // ADD THIS
+    	fmt.Printf("DEBUG: Outcome exists=%v\n", exists) 
     
 		if exists {
 			flow.Classification = &domain.ClassificationResult{
@@ -287,6 +292,53 @@ func (re *RuleEngine) classifyDehydration(answers map[string]interface{}) string
     
     return "NO_DEHYDRATION"
 }
+
+func (re *RuleEngine) classifyFeedingProblem(answers map[string]interface{}) string {
+	breastfeedingStatus := answers["breastfeeding_status"]
+	breastfeedingFrequency, _ := answers["breastfeeding_frequency"].(float64)
+	emptyBreast := answers["empty_breast_before_switching"]
+	increaseDuringIllness := answers["increase_frequency_illness"]
+	otherFoodsDrinks := answers["other_foods_drinks"]
+	positioning := answers["observe_positioning"]
+	attachment := answers["observe_attachment"]
+	suckling := answers["observe_suckling"]
+	weightAge, _ := answers["weight_age_assessment"].(float64)
+	thrush := answers["oral_thrush_check"]
+
+	hasFeedingProblem := false
+
+	if breastfeedingStatus == "no" {
+		hasFeedingProblem = true
+	}
+
+	if breastfeedingStatus == "yes" {
+		if breastfeedingFrequency < 8 {
+			hasFeedingProblem = true
+		}
+
+		if positioning == "no" || attachment == "no" {
+			hasFeedingProblem = true
+		}
+
+		if suckling == "no" {
+			hasFeedingProblem = true
+		}
+
+		if emptyBreast == "no" || increaseDuringIllness == "no" || otherFoodsDrinks == "yes" {
+			hasFeedingProblem = true
+		}
+	}
+
+	isUnderweight := weightAge < -2
+	hasThrush := thrush == "yes"
+
+	if hasFeedingProblem || isUnderweight || hasThrush {
+		return "FEEDING_PROBLEM_OR_UNDERWEIGHT"
+	}
+
+	return "NO_FEEDING_PROBLEM_NOT_UNDERWEIGHT"
+}
+
 
 func (re *RuleEngine) formatAnswer(question *domain.Question, answer interface{}) string {
 	switch question.QuestionType {
