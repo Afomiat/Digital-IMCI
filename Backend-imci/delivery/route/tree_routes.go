@@ -53,6 +53,11 @@ func setupTreeRoutes(
 				"title":       "Assess Feeding Problems and Underweight",
 				"description": "Assess infant feeding practices and nutritional status",
 			},
+			{
+				"id":          "replacement_feeding_check",
+				"title":       "Assess Replacement Feeding for HIV-Positive Mothers", 
+				"description": "Assess feeding practices for infants not receiving breast milk",
+			},
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"trees": trees,
@@ -78,6 +83,9 @@ func setupTreeRoutes(
 	assessmentGroup.GET("/tree/feeding_problem", func(c *gin.Context) { 
 		getTreeHandler(c, ruleEngineUsecase, "feeding_problem_underweight_check")
 	})
+	assessmentGroup.GET("/tree/replacement_feeding", func(c *gin.Context) {
+		getTreeHandler(c, ruleEngineUsecase, "replacement_feeding_check")
+	})
 
 	assessmentGroup.POST("/:id/start-flow", ruleEngineController.StartAssessmentFlow)
 	assessmentGroup.POST("/:id/answer", ruleEngineController.SubmitAnswer)
@@ -98,6 +106,7 @@ func setupTreeRoutesUnavailable(assessmentGroup *gin.RouterGroup) {
 	assessmentGroup.GET("/tree/birth_asphyxia", unavailableHandler)
 	assessmentGroup.GET("/tree/very_severe_disease", unavailableHandler)
 	assessmentGroup.GET("/tree/feeding_problem", unavailableHandler) 
+	assessmentGroup.GET("/tree/replacement_feeding", unavailableHandler)
 	assessmentGroup.POST("/:id/start-flow", unavailableHandler)
 	assessmentGroup.POST("/:id/answer", unavailableHandler)
 }

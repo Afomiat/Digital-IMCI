@@ -33,6 +33,8 @@ func NewRuleEngine() (*RuleEngine, error) {
 	engine.RegisterAssessmentTree(GetJaundiceTree())
 	engine.RegisterAssessmentTree(GetDiarrheaTree())
 	engine.RegisterAssessmentTree(GetFeedingProblemUnderweightTree())
+	engine.RegisterAssessmentTree(GetReplacementFeedingTree())
+
 
 	
 	return engine, nil
@@ -108,6 +110,9 @@ func (re *RuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID string, a
 		case "feeding_problem_underweight_check": 
 			finalClassification = re.classifyFeedingProblem(flow.Answers)
 			fmt.Printf("DEBUG: Feeding problem classification called, result: %s\n", finalClassification)
+		case "replacement_feeding_check":
+			finalClassification = re.classifyReplacementFeeding(flow.Answers)
+			fmt.Printf("DEBUG: Replacement feeding classification called, result: %s\n", finalClassification)
 		default:
 			finalClassification = "SEVERE_INFECTION_UNLIKELY"
 		}
@@ -339,7 +344,57 @@ func (re *RuleEngine) classifyFeedingProblem(answers map[string]interface{}) str
 	return "NO_FEEDING_PROBLEM_NOT_UNDERWEIGHT"
 }
 
+func (re *RuleEngine) classifyReplacementFeeding(answers map[string]interface{}) string {
+	milkType := answers["milk_type"]
+	preparationMethod := answers["preparation_method_non_bf"]
+	breastMilkGiven := answers["breast_milk_given_non_bf"]
+	additionalFoods := answers["additional_foods_fluids_non_bf"]
+	feedingMethod := answers["feeding_method_non_bf"]
+	utensilCleaning := answers["utensil_cleaning_non_bf"]
+	weightAge, _ := answers["weight_age_assessment_non_bf"].(float64)
+	thrush := answers["oral_thrush_check_non_bf"]
+	
+	amountPerFeed, _ := answers["amount_per_feed_non_bf"].(float64)
 
+	hasFeedingProblem := false
+
+	if milkType == "animal_milk" {
+		hasFeedingProblem = true
+	}
+
+	if preparationMethod == "incorrect_unhygienic" {
+		hasFeedingProblem = true
+	}
+
+	if breastMilkGiven == "yes" {
+		hasFeedingProblem = true
+	}
+
+	if additionalFoods == "inappropriate_foods" {
+		hasFeedingProblem = true
+	}
+
+	if feedingMethod == "bottle" {
+		hasFeedingProblem = true
+	}
+
+	if utensilCleaning == "improper_cleaning" {
+		hasFeedingProblem = true
+	}
+	
+	if amountPerFeed < 80 {
+		hasFeedingProblem = true
+	}
+
+	isUnderweight := weightAge < -2
+	hasThrush := thrush == "yes"
+
+	if hasFeedingProblem || isUnderweight || hasThrush {
+		return "FEEDING_PROBLEM_OR_UNDERWEIGHT"
+	}
+
+	return "NO_FEEDING_PROBLEM_NOT_UNDERWEIGHT"
+}
 func (re *RuleEngine) formatAnswer(question *domain.Question, answer interface{}) string {
 	switch question.QuestionType {
 	case "number_input":
@@ -349,11 +404,7 @@ func (re *RuleEngine) formatAnswer(question *domain.Question, answer interface{}
 	}
 }
 
-func stringToFloat(s string) (float64, error) {
-	var result float64
-	_, err := fmt.Sscanf(s, "%f", &result)
-	return result, err
-}
+
 
 func (re *RuleEngine) ShouldShowQuestion(flow *domain.AssessmentFlow, question domain.Question) bool {
 	if question.ShowCondition == "" {
