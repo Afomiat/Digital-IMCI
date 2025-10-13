@@ -36,6 +36,8 @@ func NewRuleEngine() (*RuleEngine, error) {
 	engine.RegisterAssessmentTree(GetReplacementFeedingTree())
 	engine.RegisterAssessmentTree(GetHIVAssessmentTree())
 	engine.RegisterAssessmentTree(GetGestationClassificationTree())
+	engine.RegisterAssessmentTree(GetDevelopmentalAssessmentTree())
+
 
 
 
@@ -210,6 +212,8 @@ func (re *RuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID stri
         finalClassification = re.classifyBirthAsphyxia(answers)
 	case "gestation_classification": 
 		finalClassification = re.classifyGestation(answers)
+	case "developmental_assessment":
+		finalClassification = re.classifyDevelopmentalAssessment(answers)
 	default:
 		finalClassification = "SEVERE_INFECTION_UNLIKELY"
 	}
@@ -232,6 +236,51 @@ func (re *RuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID stri
 	}
 
 	return flow, nil
+}
+
+func (re *RuleEngine) classifyDevelopmentalAssessment(answers map[string]interface{}) string {
+	severeClassification := answers["check_severe_classification"]
+	if severeClassification == "yes" {
+		return "SEVERE_CLASSIFICATION_NO_ASSESSMENT"
+	}
+
+	childAge := re.getNumericValue(answers["child_age_months"])
+	
+	if childAge < 2 {
+		return re.assessBirthMilestones(answers)
+	}
+
+	milestoneAssessment := answers["assess_milestones"]
+	if milestoneAssessment == "all_achieved" {
+		return "NO_DEVELOPMENTAL_DELAY"
+	} else {
+		return "SUSPECTED_DEVELOPMENTAL_DELAY"
+	}
+}
+
+func (re *RuleEngine) assessBirthMilestones(answers map[string]interface{}) string {
+	achievedMilestones := 0
+	totalMilestones := 5
+
+	milestones := []string{
+		"milestone_flexed_position",
+		"milestone_grasp_reflex", 
+		"milestone_prefers_faces",
+		"milestone_suckle_reflex",
+		"milestone_visual_tracking",
+	}
+
+	for _, milestone := range milestones {
+		if answers[milestone] == "yes" {
+			achievedMilestones++
+		}
+	}
+
+	if achievedMilestones == totalMilestones {
+		return "NO_DEVELOPMENTAL_DELAY"
+	} else {
+		return "SUSPECTED_DEVELOPMENTAL_DELAY"
+	}
 }
 
 func (re *RuleEngine) GetCurrentQuestion(flow *domain.AssessmentFlow) (*domain.Question, error) {

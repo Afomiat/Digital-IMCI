@@ -273,9 +273,9 @@ func (uc *RuleEngineUsecase) saveClassificationResults(ctx context.Context, asse
 
 func (uc *RuleEngineUsecase) getTreatmentPriority(classification string) int {
 	switch classification {
-	case "CRITICAL ILLNESS", "VERY SEVERE DISEASE", "VERY LOW BIRTH WEIGHT AND/OR VERY PRETERM":
+	case "CRITICAL ILLNESS", "VERY SEVERE DISEASE", "VERY LOW BIRTH WEIGHT AND/OR VERY PRETERM", "SEVERE CLASSIFICATION - NO DEVELOPMENTAL ASSESSMENT":
 		return 1
-	case "PNEUMONIA", "LOCAL BACTERIAL INFECTION", "LOW BIRTH WEIGHT AND/OR PRETERM":
+	case "PNEUMONIA", "LOCAL BACTERIAL INFECTION", "LOW BIRTH WEIGHT AND/OR PRETERM", "SUSPECTED DEVELOPMENTAL DELAY":
 		return 2
 	default:
 		return 3
@@ -608,9 +608,50 @@ func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classificat
 			},
 		}
 
-		
-	}
-	
+	case "SUSPECTED DEVELOPMENTAL DELAY":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Developmental Counseling",
+				Dosage:              "N/A",
+				Frequency:           "Daily",
+				Duration:            "Ongoing",
+				AdministrationRoute: "Counseling",
+				IsPreReferral:       false,
+				Instructions:        "Counsel caregiver on play & communication, responsive caregiving activities",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Developmental Screening",
+				Dosage:              "N/A",
+				Frequency:           "Once",
+				Duration:            "Single assessment",
+				AdministrationRoute: "Screening",
+				IsPreReferral:       false,
+				Instructions:        "Screen for other possible causes including malnutrition, TB disease",
+			},
+		}
+	case "NO DEVELOPMENTAL DELAY":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Developmental Promotion",
+				Dosage:              "N/A",
+				Frequency:           "Daily",
+				Duration:            "Ongoing",
+				AdministrationRoute: "Counseling",
+				IsPreReferral:       false,
+				Instructions:        "Advise on responsive caregiving, talking, reading, singing and play",
+			},
+		}
+}
+
 
 	for _, plan := range plans {
 		if err := uc.treatmentPlanRepo.Create(ctx, plan); err != nil {
