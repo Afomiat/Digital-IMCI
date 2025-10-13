@@ -21,15 +21,12 @@ func NewSignUpRouter(
 	group *gin.RouterGroup,
 	medicalProfessionalRepo domain.MedicalProfessionalRepository,
 ) {
-	// Signup-specific dependencies
 	otpRepo := repository.NewOtpRepository(db)
 	telegramRepo := repository.NewTelegramRepository(db)
 	
-	// Initialize Telegram service (without starting polling)
 	var telegramService domain.TelegramService
 	if env.TelegramBotToken != "" {
-		// CHANGE THIS LINE:
-		telegramSvc, err := service.GetTelegramService( // CHANGED from NewTelegramBotService to GetTelegramService
+		telegramSvc, err := service.GetTelegramService( 
 			env.TelegramBotToken, 
 			telegramRepo, 
 			otpRepo,
@@ -42,7 +39,6 @@ func NewSignUpRouter(
 		}
 	}
 
-	// Initialize WhatsApp service
 	var whatsappService domain.WhatsAppService
 	if env.MetaWhatsAppAccessToken != "" && env.MetaWhatsAppPhoneNumberID != "" {
 		whatsappService = service.NewMetaWhatsAppService(
@@ -68,11 +64,9 @@ func NewSignUpRouter(
 	group.GET("/debug-config", signController.DebugConfig)
 	group.GET("/validate-telegram", signController.ValidateTelegramSession)
 	
-	// Add endpoint to start Telegram bot on demand
 	group.POST("/start-telegram-bot", signController.StartTelegramBot)
 	group.POST("/stop-telegram-bot", signController.StopTelegramBot)
 	
-	// ADD THESE LINES: Also register Telegram controller routes
 	telegramController := controller.NewTelegramController(telegramService)
 	group.GET("/telegram/start-link", telegramController.GetStartLink)
 	group.GET("/telegram/signup-qr", telegramController.GenerateSignupQR)

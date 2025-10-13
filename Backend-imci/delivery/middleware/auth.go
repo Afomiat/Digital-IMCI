@@ -26,7 +26,6 @@ func NewAuthMiddleware(env *config.Env, blacklistRepo domain.TokenBlacklistRepos
 
 func (am *AuthMiddleware) Handler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Allow public endpoints
 		if c.Request.URL.Path == "/api/v1/auth/login" || 
 		   c.Request.URL.Path == "/api/v1/auth/signup" ||
 		   strings.HasPrefix(c.Request.URL.Path, "/health") {
@@ -48,7 +47,6 @@ func (am *AuthMiddleware) Handler() gin.HandlerFunc {
 			return
 		}
 
-		// Check token blacklist
 		if am.blacklistRepo != nil {
 			blacklisted, err := am.blacklistRepo.IsTokenBlacklisted(c.Request.Context(), tokenString)
 			if err != nil {
@@ -63,7 +61,6 @@ func (am *AuthMiddleware) Handler() gin.HandlerFunc {
 			}
 		}
 
-		// Parse token
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			return []byte(am.env.AccessTokenSecret), nil
 		})
@@ -81,7 +78,6 @@ func (am *AuthMiddleware) Handler() gin.HandlerFunc {
 			return
 		}
 
-		// Set medical professional context (IMPORTANT: match your database field name)
 		medicalProfessionalID, err := uuid.Parse(claims["id"].(string))
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID in token"})

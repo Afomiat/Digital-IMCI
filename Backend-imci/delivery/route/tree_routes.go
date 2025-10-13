@@ -58,11 +58,19 @@ func setupTreeRoutes(
 				"title":       "Assess Replacement Feeding for HIV-Positive Mothers", 
 				"description": "Assess feeding practices for infants not receiving breast milk",
 			},
+			{
+				"id":          "hiv_status_assessment", 
+				"title":       "HIV Status Assessment and Classification",
+				"description": "Assess HIV status of mother and young infant",
+			},
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"trees": trees,
 		})
 	})
+	assessmentGroup.GET("/trees/:treeId/questions", ruleEngineController.GetTreeQuestions)
+
+	assessmentGroup.POST("/batch-process", ruleEngineController.ProcessBatchAssessment)
 
 	assessmentGroup.GET("/tree/diarrhea", func(c *gin.Context) {
 		getTreeHandler(c, ruleEngineUsecase, "diarrhea_check")
@@ -86,6 +94,10 @@ func setupTreeRoutes(
 	assessmentGroup.GET("/tree/replacement_feeding", func(c *gin.Context) {
 		getTreeHandler(c, ruleEngineUsecase, "replacement_feeding_check")
 	})
+	assessmentGroup.GET("/tree/hiv", func(c *gin.Context) {
+		getTreeHandler(c, ruleEngineUsecase, "hiv_status_assessment")
+	})
+		
 
 	assessmentGroup.POST("/:id/start-flow", ruleEngineController.StartAssessmentFlow)
 	assessmentGroup.POST("/:id/answer", ruleEngineController.SubmitAnswer)

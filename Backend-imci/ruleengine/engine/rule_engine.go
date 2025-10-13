@@ -34,6 +34,7 @@ func NewRuleEngine() (*RuleEngine, error) {
 	engine.RegisterAssessmentTree(GetDiarrheaTree())
 	engine.RegisterAssessmentTree(GetFeedingProblemUnderweightTree())
 	engine.RegisterAssessmentTree(GetReplacementFeedingTree())
+	engine.RegisterAssessmentTree(GetHIVAssessmentTree())
 
 
 	
@@ -171,6 +172,61 @@ func (re *RuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID string, a
 }
 	
 
+
+func (re *RuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID string, answers map[string]interface{}) (*domain.AssessmentFlow, error) {
+	tree, err := re.GetAssessmentTree(treeID)
+	if err != nil {
+		return nil, err
+	}
+
+	flow := &domain.AssessmentFlow{
+		AssessmentID: assessmentID,
+		TreeID:       treeID,
+		CurrentNode:  "",
+		Status:       domain.FlowStatusInProgress,
+		Answers:      answers,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	var finalClassification string
+	
+	switch treeID {
+	case "very_severe_disease_check":
+		finalClassification = re.classifyVerySevereDisease(answers)
+	case "jaundice_check":
+		finalClassification = re.classifyJaundice(answers)
+	case "diarrhea_check":
+		finalClassification = re.classifyDehydration(answers)
+	case "feeding_problem_underweight_check":
+		finalClassification = re.classifyFeedingProblem(answers)
+	case "replacement_feeding_check":
+		finalClassification = re.classifyReplacementFeeding(answers)
+	case "hiv_status_assessment": 
+		finalClassification = re.ClassifyHIV(answers)
+	default:
+		finalClassification = "SEVERE_INFECTION_UNLIKELY"
+	}
+
+	outcome, exists := tree.Outcomes[finalClassification]
+	if exists {
+		flow.Classification = &domain.ClassificationResult{
+			Classification: outcome.Classification,
+			Color:          outcome.Color,
+			Emergency:      outcome.Emergency,
+			Actions:        outcome.Actions,
+			TreatmentPlan:  outcome.TreatmentPlan,
+			FollowUp:       outcome.FollowUp,
+			MotherAdvice:   outcome.MotherAdvice,
+		}
+		flow.Status = domain.FlowStatusCompleted
+		if outcome.Emergency {
+			flow.Status = domain.FlowStatusEmergency
+		}
+	}
+
+	return flow, nil
+}
 
 func (re *RuleEngine) GetCurrentQuestion(flow *domain.AssessmentFlow) (*domain.Question, error) {
 	if flow.Status != domain.FlowStatusInProgress {
@@ -395,6 +451,42 @@ func (re *RuleEngine) classifyReplacementFeeding(answers map[string]interface{})
 
 	return "NO_FEEDING_PROBLEM_NOT_UNDERWEIGHT"
 }
+
+func (re *RuleEngine) ClassifyHIV(answers map[string]interface{}) string {
+	motherStatus := answers["mother_hiv_status"]
+	antibodyStatus := answers["infant_antibody_status"]
+	pcrStatus := answers["infant_dna_pcr_status"]
+	breastfeeding := answers["breastfeeding_status"]
+
+	if pcrStatus == "positive" {
+		return "HIV_INFECTED"
+	}
+
+	if motherStatus == "positive" {
+		if pcrStatus == "unknown" {
+			return "HIV_EXPOSED"
+		}
+		if pcrStatus == "negative" {
+			if breastfeeding == "yes" {
+				return "HIV_EXPOSED"
+			} else {
+				return "HIV_INFECTION_UNLIKELY"
+			}
+		}
+	}
+
+	if motherStatus == "unknown" || motherStatus == "negative" {
+		if antibodyStatus == "negative" {
+			return "HIV_INFECTION_UNLIKELY"
+		}
+		if motherStatus == "unknown" && antibodyStatus == "unknown" {
+			return "HIV_STATUS_UNKNOWN"
+		}
+	}
+
+	return "HIV_INFECTION_UNLIKELY"
+}
+
 func (re *RuleEngine) formatAnswer(question *domain.Question, answer interface{}) string {
 	switch question.QuestionType {
 	case "number_input":
