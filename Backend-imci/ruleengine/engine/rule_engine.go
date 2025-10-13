@@ -204,6 +204,8 @@ func (re *RuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID stri
 		finalClassification = re.classifyReplacementFeeding(answers)
 	case "hiv_status_assessment": 
 		finalClassification = re.ClassifyHIV(answers)
+	case "birth_asphyxia_check":
+        finalClassification = re.classifyBirthAsphyxia(answers)
 	default:
 		finalClassification = "SEVERE_INFECTION_UNLIKELY"
 	}
@@ -248,6 +250,32 @@ func (re *RuleEngine) findQuestion(tree *domain.AssessmentTree, nodeID string) (
 		}
 	}
 	return nil, ErrQuestionNotFound
+}
+func (re *RuleEngine) classifyBirthAsphyxia(answers map[string]interface{}) string {
+    checkAsphyxia := answers["check_birth_asphyxia"]
+    notBreathing := answers["not_breathing"]
+    gasping := answers["gasping"]
+    breathingPoorly := answers["breathing_poorly"]
+    breathingNormally := answers["breathing_normally"]
+
+    if checkAsphyxia == "no" {
+        return "NO_BIRTH_ASPHYXIA"
+    }
+
+    if notBreathing == "yes" {
+        return "BIRTH_ASPHYXIA"
+    }
+    if gasping == "yes" {
+        return "BIRTH_ASPHYXIA"
+    }
+    if breathingPoorly == "yes" {
+        return "BIRTH_ASPHYXIA"
+    }
+    if breathingNormally == "no" {
+        return "BIRTH_ASPHYXIA"
+    }
+
+    return "NO_BIRTH_ASPHYXIA"
 }
 func (re *RuleEngine) classifyVerySevereDisease(answers map[string]interface{}) string {
 	feedingAbility := answers["feeding_ability_detail"]
