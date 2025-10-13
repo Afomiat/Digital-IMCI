@@ -3,8 +3,8 @@ package controller
 import (
 	"net/http"
 
+	"github.com/Afomiat/Digital-IMCI/ruleengine/domain"
 	"github.com/Afomiat/Digital-IMCI/ruleengine/usecase"
-	ruleengineusecase  "github.com/Afomiat/Digital-IMCI/ruleengine/usecase"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -12,23 +12,23 @@ import (
 type RuleEngineController struct {
 	ruleEngineUsecase *usecase.RuleEngineUsecase
 }
-type BatchProcessRequest struct {
-	AssessmentID uuid.UUID            `json:"assessment_id" binding:"required"`
-	TreeID       string               `json:"tree_id" binding:"required"`
-	Answers      map[string]interface{} `json:"answers" binding:"required"`
-}
+
 func NewRuleEngineController(ruleEngineUsecase *usecase.RuleEngineUsecase) *RuleEngineController {
 	return &RuleEngineController{
 		ruleEngineUsecase: ruleEngineUsecase,
 	}
 }
 
-type StartAssessmentFlowRequest struct {
-	TreeID string `json:"tree_id" binding:"required"`
+type ErrorResponse struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+	Code    string `json:"code"`
 }
 
 func (rc *RuleEngineController) StartAssessmentFlow(c *gin.Context) {
-	var req StartAssessmentFlowRequest
+	var req struct {
+		TreeID string `json:"tree_id" binding:"required"`
+	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
@@ -61,7 +61,7 @@ func (rc *RuleEngineController) StartAssessmentFlow(c *gin.Context) {
 
 	mpID := medicalProfessionalID.(uuid.UUID)
 
-	response, err := rc.ruleEngineUsecase.StartAssessmentFlow(c.Request.Context(), usecase.StartFlowRequest{
+	response, err := rc.ruleEngineUsecase.StartAssessmentFlow(c.Request.Context(), domain.StartFlowRequest{
 		AssessmentID: assessmentID, 
 		TreeID:       req.TreeID,
 	}, mpID)
@@ -81,13 +81,11 @@ func (rc *RuleEngineController) StartAssessmentFlow(c *gin.Context) {
 	})
 }
 
-type SubmitAnswerRequest struct {
-	NodeID string      `json:"node_id" binding:"required"`
-	Answer interface{} `json:"answer" binding:"required"`
-}
-
 func (rc *RuleEngineController) SubmitAnswer(c *gin.Context) {
-	var req SubmitAnswerRequest
+	var req struct {
+		NodeID string      `json:"node_id" binding:"required"`
+		Answer interface{} `json:"answer" binding:"required"`
+	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
@@ -120,8 +118,8 @@ func (rc *RuleEngineController) SubmitAnswer(c *gin.Context) {
 
 	mpID := medicalProfessionalID.(uuid.UUID)
 
-	response, err := rc.ruleEngineUsecase.SubmitAnswer(c.Request.Context(), usecase.SubmitAnswerRequest{
-		AssessmentID: assessmentID, // Get from URL parameter
+	response, err := rc.ruleEngineUsecase.SubmitAnswer(c.Request.Context(), domain.SubmitAnswerRequest{
+		AssessmentID: assessmentID, 
 		NodeID:       req.NodeID,
 		Answer:       req.Answer,
 	}, mpID)
@@ -141,14 +139,9 @@ func (rc *RuleEngineController) SubmitAnswer(c *gin.Context) {
 	})
 }
 
-type ErrorResponse struct {
-	Error   string `json:"error"`
-	Message string `json:"message"`
-	Code    string `json:"code"`
-}
-
+// Batch Processing Endpoints
 func (ctrl *RuleEngineController) ProcessBatchAssessment(c *gin.Context) {
-    var req BatchProcessRequest
+    var req domain.BatchProcessRequest
     if err := c.ShouldBindJSON(&req); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{
             "error":   "Invalid request body",
@@ -175,7 +168,7 @@ func (ctrl *RuleEngineController) ProcessBatchAssessment(c *gin.Context) {
 
     response, err := ctrl.ruleEngineUsecase.ProcessBatchAssessment(
         c.Request.Context(), 
-        ruleengineusecase.BatchProcessRequest(req), 
+        req, 
         medicalProfessionalID,
     )
     if err != nil {

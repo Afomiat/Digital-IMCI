@@ -63,6 +63,11 @@ func setupTreeRoutes(
 				"title":       "HIV Status Assessment and Classification",
 				"description": "Assess HIV status of mother and young infant",
 			},
+		{
+				"id":          "gestation_classification",
+				"title":       "Gestation and Birth Weight Classification",
+				"description": "Assess gestational age and birth weight. Classify and treat according to IMCI guidelines",
+			},
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"trees": trees,
@@ -98,6 +103,9 @@ func setupTreeRoutes(
 		getTreeHandler(c, ruleEngineUsecase, "hiv_status_assessment")
 	})
 		
+	assessmentGroup.GET("/tree/gestation", func(c *gin.Context) {
+		getTreeHandler(c, ruleEngineUsecase, "gestation_classification")
+	})
 
 	assessmentGroup.POST("/:id/start-flow", ruleEngineController.StartAssessmentFlow)
 	assessmentGroup.POST("/:id/answer", ruleEngineController.SubmitAnswer)
@@ -119,6 +127,8 @@ func setupTreeRoutesUnavailable(assessmentGroup *gin.RouterGroup) {
 	assessmentGroup.GET("/tree/very_severe_disease", unavailableHandler)
 	assessmentGroup.GET("/tree/feeding_problem", unavailableHandler) 
 	assessmentGroup.GET("/tree/replacement_feeding", unavailableHandler)
+	assessmentGroup.GET("/tree/gestation", unavailableHandler)
+
 	assessmentGroup.POST("/:id/start-flow", unavailableHandler)
 	assessmentGroup.POST("/:id/answer", unavailableHandler)
 }

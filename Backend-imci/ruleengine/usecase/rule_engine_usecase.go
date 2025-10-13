@@ -12,18 +12,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type BatchProcessRequest struct {
-	AssessmentID uuid.UUID            `json:"assessment_id" binding:"required"`
-	TreeID       string               `json:"tree_id" binding:"required"`
-	Answers      map[string]interface{} `json:"answers" binding:"required"`
-}
-
-type BatchProcessResponse struct {
-	AssessmentID  uuid.UUID                           `json:"assessment_id"`
-	Classification *ruleenginedomain.ClassificationResult `json:"classification,omitempty"`
-	Status         ruleenginedomain.FlowStatus         `json:"status"`
-}
-
 type RuleEngineUsecase struct {
 	ruleEngine                      *engine.RuleEngine
 	assessmentRepo                  domain.AssessmentRepository
@@ -57,34 +45,7 @@ func NewRuleEngineUsecase(
 	}
 }
 
-type StartFlowRequest struct {
-	AssessmentID uuid.UUID
-	TreeID       string `json:"tree_id" binding:"required"`
-}
-
-type StartFlowResponse struct {
-	SessionID   uuid.UUID                  `json:"session_id"`
-	Question    *ruleenginedomain.Question `json:"question,omitempty"`
-	IsComplete  bool                       `json:"is_complete"`
-	CurrentNode string                     `json:"current_node"`
-}
-
-type SubmitAnswerRequest struct {
-	AssessmentID uuid.UUID
-	NodeID       string      `json:"node_id" binding:"required"`
-	Answer       interface{} `json:"answer" binding:"required"`
-}
-
-type SubmitAnswerResponse struct {
-	SessionID      uuid.UUID                           `json:"session_id"`
-	Question       *ruleenginedomain.Question          `json:"question,omitempty"`
-	Classification *ruleenginedomain.ClassificationResult `json:"classification,omitempty"`
-	IsComplete     bool                                `json:"is_complete"`
-	CurrentNode    string                              `json:"current_node"`
-	Status         ruleenginedomain.FlowStatus         `json:"status"`
-}
-
-func (uc *RuleEngineUsecase) StartAssessmentFlow(ctx context.Context, req StartFlowRequest, medicalProfessionalID uuid.UUID) (*StartFlowResponse, error) {
+func (uc *RuleEngineUsecase) StartAssessmentFlow(ctx context.Context, req ruleenginedomain.StartFlowRequest, medicalProfessionalID uuid.UUID) (*ruleenginedomain.StartFlowResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, uc.contextTimeout)
 	defer cancel()
 
@@ -122,7 +83,7 @@ func (uc *RuleEngineUsecase) StartAssessmentFlow(ctx context.Context, req StartF
 		return nil, err
 	}
 
-	return &StartFlowResponse{
+	return &ruleenginedomain.StartFlowResponse{
 		SessionID:   medicalProfessionalAnswer.ID,
 		Question:    currentQuestion,
 		IsComplete:  flow.Status == ruleenginedomain.FlowStatusCompleted,
@@ -130,7 +91,7 @@ func (uc *RuleEngineUsecase) StartAssessmentFlow(ctx context.Context, req StartF
 	}, nil
 }
 
-func (uc *RuleEngineUsecase) SubmitAnswer(ctx context.Context, req SubmitAnswerRequest, medicalProfessionalID uuid.UUID) (*SubmitAnswerResponse, error) {
+func (uc *RuleEngineUsecase) SubmitAnswer(ctx context.Context, req ruleenginedomain.SubmitAnswerRequest, medicalProfessionalID uuid.UUID) (*ruleenginedomain.SubmitAnswerResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, uc.contextTimeout)
 	defer cancel()
 
@@ -184,7 +145,7 @@ func (uc *RuleEngineUsecase) SubmitAnswer(ctx context.Context, req SubmitAnswerR
 		}
 	}
 
-	return &SubmitAnswerResponse{
+	return &ruleenginedomain.SubmitAnswerResponse{
 		SessionID:      medicalProfessionalAnswer.ID,
 		Question:       nextQuestion,
 		Classification: updatedFlow.Classification,
@@ -193,6 +154,65 @@ func (uc *RuleEngineUsecase) SubmitAnswer(ctx context.Context, req SubmitAnswerR
 		Status:         updatedFlow.Status,
 	}, nil
 }
+
+func (uc *RuleEngineUsecase) ProcessBatchAssessment(ctx context.Context, req ruleenginedomain.BatchProcessRequest, medicalProfessionalID uuid.UUID) (*ruleenginedomain.BatchProcessResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, uc.contextTimeout)
+	defer cancel()
+
+	assessment, err := uc.assessmentRepo.GetByID(ctx, req.AssessmentID, medicalProfessionalID)
+	if err != nil {
+		return nil, err
+	}
+
+	flow, err := uc.ruleEngine.ProcessBatchAssessment(req.AssessmentID, req.TreeID, req.Answers)
+	if err != nil {
+		return nil, err
+	}
+
+	medicalProfessionalAnswer := &domain.MedicalProfessionalAnswer{
+		ID:                 uuid.New(),
+		AssessmentID:       req.AssessmentID,
+		Answers:            domain.JSONB(req.Answers),
+		QuestionSetVersion: req.TreeID,
+		ClinicalFindings:   domain.JSONB{},
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
+	}
+
+	if err := uc.medicalProfessionalAnswerRepo.Upsert(ctx, medicalProfessionalAnswer); err != nil {
+		return nil, fmt.Errorf("failed to save assessment answers: %w", err)
+	}
+
+	if flow.Classification != nil {
+		if err := uc.saveClassificationResults(ctx, assessment, flow.Classification); err != nil {
+			return nil, fmt.Errorf("failed to save classification results: %w", err)
+		}
+
+		assessment.Status = domain.StatusCompleted
+		if err := uc.assessmentRepo.Update(ctx, assessment); err != nil {
+			return nil, fmt.Errorf("failed to update assessment status: %w", err)
+		}
+	}
+
+	return &ruleenginedomain.BatchProcessResponse{
+		AssessmentID:  req.AssessmentID,
+		Classification: flow.Classification,
+		Status:         flow.Status,
+	}, nil
+}
+
+func (uc *RuleEngineUsecase) GetTreeQuestions(treeID string) (*ruleenginedomain.AssessmentTree, error) {
+	tree, err := uc.ruleEngine.GetAssessmentTree(treeID)
+	if err != nil {
+		return nil, err
+	}
+	return tree, nil
+}
+
+func (uc *RuleEngineUsecase) GetAssessmentTree(treeID string) (*ruleenginedomain.AssessmentTree, error) {
+	return uc.ruleEngine.GetAssessmentTree(treeID)
+}
+
 
 func (uc *RuleEngineUsecase) saveClassificationResults(ctx context.Context, assessment *domain.Assessment, classification *ruleenginedomain.ClassificationResult) error {
 	if classification == nil {
@@ -253,9 +273,9 @@ func (uc *RuleEngineUsecase) saveClassificationResults(ctx context.Context, asse
 
 func (uc *RuleEngineUsecase) getTreatmentPriority(classification string) int {
 	switch classification {
-	case "CRITICAL ILLNESS", "VERY SEVERE DISEASE":
+	case "CRITICAL ILLNESS", "VERY SEVERE DISEASE", "VERY LOW BIRTH WEIGHT AND/OR VERY PRETERM":
 		return 1
-	case "PNEUMONIA", "LOCAL BACTERIAL INFECTION":
+	case "PNEUMONIA", "LOCAL BACTERIAL INFECTION", "LOW BIRTH WEIGHT AND/OR PRETERM":
 		return 2
 	default:
 		return 3
@@ -506,8 +526,87 @@ func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classificat
 			})
 		}
 	
-	
-
+	case "VERY LOW BIRTH WEIGHT AND/OR VERY PRETERM":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Vitamin K",
+				Dosage:              "0.5mg",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "IM",
+				IsPreReferral:       true,
+				Instructions:        "Give on anterior mid lateral thigh before referral",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Kangaroo Mother Care",
+				Dosage:              "N/A",
+				Frequency:           "Continuous",
+				Duration:            "Until hospital transfer",
+				AdministrationRoute: "Positioning",
+				IsPreReferral:       true,
+				Instructions:        "Start KMC and maintain during referral",
+			},
+		}
+	case "LOW BIRTH WEIGHT AND/OR PRETERM":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Vitamin K",
+				Dosage:              "1mg (0.5mg if GA <34 weeks)",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "IM",
+				IsPreReferral:       false,
+				Instructions:        "Give on anterior mid lateral thigh",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Kangaroo Mother Care",
+				Dosage:              "If <2000g",
+				Frequency:           "Continuous",
+				Duration:            "Until weight ≥2500g",
+				AdministrationRoute: "Positioning",
+				IsPreReferral:       false,
+				Instructions:        "Practice KMC in health facility or hospital",
+			},
+		}
+	case "NORMAL BIRTH WEIGHT AND/OR TERM":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Vitamin K",
+				Dosage:              "1mg",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "IM",
+				IsPreReferral:       false,
+				Instructions:        "Give on anterior mid thigh",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "First Vaccine",
+				Dosage:              "As per schedule",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "IM",
+				IsPreReferral:       false,
+				Instructions:        "Give first dose of vaccine",
+			},
+		}
 
 		
 	}
@@ -521,60 +620,4 @@ func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classificat
 
 	return nil
 }
-func (uc *RuleEngineUsecase) GetAssessmentTree(treeID string) (*ruleenginedomain.AssessmentTree, error) {
-	return uc.ruleEngine.GetAssessmentTree(treeID)
-}
 
-func (uc *RuleEngineUsecase) ProcessBatchAssessment(ctx context.Context, req BatchProcessRequest, medicalProfessionalID uuid.UUID) (*BatchProcessResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, uc.contextTimeout)
-	defer cancel()
-
-	assessment, err := uc.assessmentRepo.GetByID(ctx, req.AssessmentID, medicalProfessionalID)
-	if err != nil {
-		return nil, err
-	}
-
-	flow, err := uc.ruleEngine.ProcessBatchAssessment(req.AssessmentID, req.TreeID, req.Answers)
-	if err != nil {
-		return nil, err
-	}
-
-	medicalProfessionalAnswer := &domain.MedicalProfessionalAnswer{
-		ID:                 uuid.New(),
-		AssessmentID:       req.AssessmentID,
-		Answers:            domain.JSONB(req.Answers),
-		QuestionSetVersion: req.TreeID,
-		ClinicalFindings:   domain.JSONB{},
-		CreatedAt:          time.Now(),
-		UpdatedAt:          time.Now(),
-	}
-
-	if err := uc.medicalProfessionalAnswerRepo.Upsert(ctx, medicalProfessionalAnswer); err != nil {
-		return nil, fmt.Errorf("failed to save assessment answers: %w", err)
-	}
-
-	if flow.Classification != nil {
-		if err := uc.saveClassificationResults(ctx, assessment, flow.Classification); err != nil {
-			return nil, fmt.Errorf("failed to save classification results: %w", err)
-		}
-
-		assessment.Status = domain.StatusCompleted
-		if err := uc.assessmentRepo.Update(ctx, assessment); err != nil {
-			return nil, fmt.Errorf("failed to update assessment status: %w", err)
-		}
-	}
-
-	return &BatchProcessResponse{
-		AssessmentID:  req.AssessmentID,
-		Classification: flow.Classification,
-		Status:         flow.Status,
-	}, nil
-}
-
-func (uc *RuleEngineUsecase) GetTreeQuestions(treeID string) (*ruleenginedomain.AssessmentTree, error) {
-	tree, err := uc.ruleEngine.GetAssessmentTree(treeID)
-	if err != nil {
-		return nil, err
-	}
-	return tree, nil
-}

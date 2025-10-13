@@ -82,3 +82,44 @@ type Validation struct {
 	Max  float64 `json:"max,omitempty"`
 	Step float64 `json:"step,omitempty"`
 }
+
+// Batch Processing
+type BatchProcessRequest struct {
+	AssessmentID uuid.UUID            `json:"assessment_id" binding:"required"`
+	TreeID       string               `json:"tree_id" binding:"required"`
+	Answers      map[string]interface{} `json:"answers" binding:"required"`
+}
+
+type BatchProcessResponse struct {
+	AssessmentID  uuid.UUID            `json:"assessment_id"`
+	Classification *ClassificationResult `json:"classification,omitempty"`
+	Status         FlowStatus          `json:"status"`
+}
+
+// Sequential Processing
+type StartFlowRequest struct {
+	AssessmentID uuid.UUID
+	TreeID       string `json:"tree_id" binding:"required"`
+}
+
+type StartFlowResponse struct {
+	SessionID   uuid.UUID `json:"session_id"`
+	Question    *Question `json:"question,omitempty"`
+	IsComplete  bool      `json:"is_complete"`
+	CurrentNode string    `json:"current_node"`
+}
+
+type SubmitAnswerRequest struct {
+	AssessmentID uuid.UUID
+	NodeID       string      `json:"node_id" binding:"required"`
+	Answer       interface{} `json:"answer" binding:"required"`
+}
+
+type SubmitAnswerResponse struct {
+	SessionID      uuid.UUID            `json:"session_id"`
+	Question       *Question            `json:"question,omitempty"`
+	Classification *ClassificationResult `json:"classification,omitempty"`
+	IsComplete     bool                 `json:"is_complete"`
+	CurrentNode    string               `json:"current_node"`
+	Status         FlowStatus           `json:"status"`
+}

@@ -35,6 +35,8 @@ func NewRuleEngine() (*RuleEngine, error) {
 	engine.RegisterAssessmentTree(GetFeedingProblemUnderweightTree())
 	engine.RegisterAssessmentTree(GetReplacementFeedingTree())
 	engine.RegisterAssessmentTree(GetHIVAssessmentTree())
+	engine.RegisterAssessmentTree(GetGestationClassificationTree())
+
 
 
 	
@@ -206,6 +208,8 @@ func (re *RuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID stri
 		finalClassification = re.ClassifyHIV(answers)
 	case "birth_asphyxia_check":
         finalClassification = re.classifyBirthAsphyxia(answers)
+	case "gestation_classification": 
+		finalClassification = re.classifyGestation(answers)
 	default:
 		finalClassification = "SEVERE_INFECTION_UNLIKELY"
 	}
@@ -515,6 +519,83 @@ func (re *RuleEngine) ClassifyHIV(answers map[string]interface{}) string {
 	return "HIV_INFECTION_UNLIKELY"
 }
 
+func (re *RuleEngine) classifyGestation(answers map[string]interface{}) string {
+	gestationalAge := re.getNumericValue(answers["gestational_age_weeks"])
+	birthWeight := re.getNumericValue(answers["birth_weight_grams"])
+	currentWeight := re.getNumericValue(answers["current_weight_grams"])
+	birthWeightGA := re.getNumericValue(answers["birth_weight_grams_ga"])
+	currentWeightGA := re.getNumericValue(answers["current_weight_grams_ga"])
+	
+	knowGestationalAge := answers["know_gestational_age"]
+	knowBirthWeight := answers["know_birth_weight"]
+	knowBirthWeightGA := answers["know_birth_weight_ga"]
+	canWeighBaby := answers["can_weigh_baby"]
+	canWeighBabyGA := answers["can_weigh_baby_ga"]
+
+	var effectiveWeight float64
+	
+	if currentWeightGA > 0 {
+		effectiveWeight = currentWeightGA
+	} else if birthWeightGA > 0 {
+		effectiveWeight = birthWeightGA
+	} else if currentWeight > 0 {
+		effectiveWeight = currentWeight
+	} else if birthWeight > 0 {
+		effectiveWeight = birthWeight
+	}
+
+	if effectiveWeight > 0 && effectiveWeight < 1500 {
+		return "VERY_LOW_BIRTH_WEIGHT"
+	}
+
+	if knowGestationalAge == "yes" && gestationalAge > 0 {
+		if gestationalAge < 32 {
+			return "VERY_LOW_BIRTH_WEIGHT"
+		} else if gestationalAge >= 32 && gestationalAge < 37 {
+			return "LOW_BIRTH_WEIGHT"
+		} else if gestationalAge >= 37 {
+			return "NORMAL_BIRTH_WEIGHT"
+		}
+	}
+
+	if knowGestationalAge == "no" && effectiveWeight > 0 {
+		if effectiveWeight < 1500 {
+			return "VERY_LOW_BIRTH_WEIGHT"
+		} else if effectiveWeight >= 1500 && effectiveWeight < 2500 {
+			return "LOW_BIRTH_WEIGHT"
+		} else if effectiveWeight >= 2500 {
+			return "NORMAL_BIRTH_WEIGHT"
+		}
+	}
+
+	if (knowBirthWeight == "no" && canWeighBaby == "no") || (knowBirthWeightGA == "no" && canWeighBabyGA == "no") {
+		return "WEIGHT_UNKNOWN"
+	}
+
+	return "LOW_BIRTH_WEIGHT"
+}
+
+func (re *RuleEngine) getNumericValue(value interface{}) float64 {
+	if value == nil {
+		return 0
+	}
+	
+	switch v := value.(type) {
+	case float64:
+		return v
+	case int:
+		return float64(v)
+	case string:
+		var result float64
+		_, err := fmt.Sscanf(v, "%f", &result)
+		if err == nil {
+			return result
+		}
+		return 0
+	default:
+		return 0
+	}
+}
 func (re *RuleEngine) formatAnswer(question *domain.Question, answer interface{}) string {
 	switch question.QuestionType {
 	case "number_input":
