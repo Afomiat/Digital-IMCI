@@ -1,4 +1,3 @@
-// ruleengine/engine/birth_asphyxia_tree.go
 package engine
 
 import "github.com/Afomiat/Digital-IMCI/ruleengine/domain"
@@ -40,7 +39,7 @@ func GetBirthAsphyxiaTree() *domain.AssessmentTree {
 				ShowCondition: "check_birth_asphyxia.yes",
 				Answers: map[string]domain.Answer{
 					"yes": {
-						Classification: "BIRTH_ASPHYXIA",
+						Classification: "BIRTH_ASPHYXIA", // Use underscore here
 						EmergencyPath:  true,
 					},
 					"no": {
@@ -58,7 +57,7 @@ func GetBirthAsphyxiaTree() *domain.AssessmentTree {
 				ShowCondition: "check_birth_asphyxia.yes AND not_breathing.no",
 				Answers: map[string]domain.Answer{
 					"yes": {
-						Classification: "BIRTH_ASPHYXIA",
+						Classification: "BIRTH_ASPHYXIA", // Use underscore here
 						EmergencyPath:  true,
 					},
 					"no": {
@@ -76,7 +75,7 @@ func GetBirthAsphyxiaTree() *domain.AssessmentTree {
 				ShowCondition: "check_birth_asphyxia.yes AND not_breathing.no AND gasping.no",
 				Answers: map[string]domain.Answer{
 					"yes": {
-						Classification: "BIRTH_ASPHYXIA",
+						Classification: "BIRTH_ASPHYXIA", // Use underscore here
 						EmergencyPath:  true,
 					},
 					"no": {
@@ -94,11 +93,11 @@ func GetBirthAsphyxiaTree() *domain.AssessmentTree {
 				ShowCondition: "check_birth_asphyxia.yes AND not_breathing.no AND gasping.no AND breathing_poorly.no",
 				Answers: map[string]domain.Answer{
 					"yes": {
-						Classification: "NO_BIRTH_ASPHYXIA",
+						Classification: "NO_BIRTH_ASPHYXIA", // Use underscore here
 						Color:          "green",
 					},
 					"no": {
-						Classification: "BIRTH_ASPHYXIA",
+						Classification: "BIRTH_ASPHYXIA", // Use underscore here
 						EmergencyPath:  true,
 					},
 				},
@@ -106,7 +105,7 @@ func GetBirthAsphyxiaTree() *domain.AssessmentTree {
 		},
 		Outcomes: map[string]domain.Outcome{
 			"BIRTH_ASPHYXIA": {
-				Classification: "BIRTH ASPHYXIA",
+				Classification: "BIRTH_ASPHYXIA", // Use underscore here to match key
 				Color:          "pink",
 				Emergency:      true,
 				Actions: []string{
@@ -126,7 +125,7 @@ func GetBirthAsphyxiaTree() *domain.AssessmentTree {
 				MotherAdvice: "Advise mother when to return immediately",
 			},
 			"NO_BIRTH_ASPHYXIA": {
-				Classification: "NO BIRTH ASPHYXIA",
+				Classification: "NO_BIRTH_ASPHYXIA", // Use underscore here to match key
 				Color:          "green",
 				Emergency:      false,
 				Actions: []string{
