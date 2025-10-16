@@ -9,9 +9,11 @@ import (
 	"github.com/Afomiat/Digital-IMCI/delivery/controller"
 	"github.com/Afomiat/Digital-IMCI/repository"
 	"github.com/Afomiat/Digital-IMCI/usecase"
-	ruleenginecontroller "github.com/Afomiat/Digital-IMCI/ruleengine/controller"
-	ruleengineengine "github.com/Afomiat/Digital-IMCI/ruleengine/engine"
-	ruleengineusecase "github.com/Afomiat/Digital-IMCI/ruleengine/usecase"
+	younginfantcontroller "github.com/Afomiat/Digital-IMCI/ruleengine/controller"
+	childcontroller "github.com/Afomiat/Digital-IMCI/ruleengine/controller"
+	"github.com/Afomiat/Digital-IMCI/ruleengine/engine"
+	younginfantusecase "github.com/Afomiat/Digital-IMCI/ruleengine/usecase"
+	childusecase "github.com/Afomiat/Digital-IMCI/ruleengine/usecase"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -32,23 +34,17 @@ func NewAssessmentRouter(
 
 	assessmentUsecase := usecase.NewAssessmentUsecase(assessmentRepo, patientRepo, timeout)
 	
-	var ruleEngine *ruleengineengine.RuleEngine
-	var ruleEngineErr error
-	
-	ruleEngine, ruleEngineErr = ruleengineengine.NewRuleEngine()
-	if ruleEngineErr != nil {
-		log.Printf("🚨 Rule engine initialization failed: %v", ruleEngineErr)
-		log.Printf("⚠️  Assessment creation will work, but IMCI flow will be disabled")
+	var youngInfantController *younginfantcontroller.YoungInfantRuleEngineController
+	var youngInfantUsecase *younginfantusecase.YoungInfantRuleEngineUsecase
+	var childController *childcontroller.ChildRuleEngineController
+	var childUsecase *childusecase.ChildRuleEngineUsecase
+		youngInfantEngine, err := engine.NewYoungInfantRuleEngine()
+	if err != nil {
+		log.Printf("⚠️  Young infant rule engine initialization failed: %v", err)
 	} else {
-		log.Printf("✅ Rule engine initialized successfully")
-	}
-
-	var ruleEngineController *ruleenginecontroller.RuleEngineController
-	var ruleEngineUsecase *ruleengineusecase.RuleEngineUsecase
-	
-	if ruleEngine != nil {
-		ruleEngineUsecase = ruleengineusecase.NewRuleEngineUsecase(
-			ruleEngine,
+		log.Printf("✅ Young infant rule engine initialized successfully")
+		youngInfantUsecase = younginfantusecase.NewYoungInfantRuleEngineUsecase(
+			youngInfantEngine,
 			assessmentRepo,
 			medicalProfessionalAnswerRepo,
 			clinicalFindingsRepo,
@@ -57,7 +53,27 @@ func NewAssessmentRouter(
 			counselingRepo,
 			timeout,
 		)
-		ruleEngineController = ruleenginecontroller.NewRuleEngineController(ruleEngineUsecase)
+		youngInfantController = younginfantcontroller.NewYoungInfantRuleEngineController(youngInfantUsecase)
+		log.Printf("✅ Young infant rule engine use case initialized successfully")
+	}
+
+	childEngine, err := engine.NewChildRuleEngine()
+	if err != nil {
+		log.Printf("⚠️  Child rule engine initialization failed: %v", err)
+	} else {
+		log.Printf("✅ Child rule engine initialized successfully")
+		childUsecase = childusecase.NewChildRuleEngineUsecase(
+			childEngine,
+			assessmentRepo,
+			medicalProfessionalAnswerRepo,
+			clinicalFindingsRepo,
+			classificationRepo,
+			treatmentPlanRepo,
+			counselingRepo,
+			timeout,
+		)
+		childController = childcontroller.NewChildRuleEngineController(childUsecase)
+		log.Printf("✅ Child rule engine use case initialized successfully")
 	}
 
 	assessmentController := controller.NewAssessmentController(assessmentUsecase)
@@ -70,6 +86,7 @@ func NewAssessmentRouter(
 		assessmentGroup.PUT("/:id", assessmentController.UpdateAssessment) 
 		assessmentGroup.DELETE("/:id", assessmentController.DeleteAssessment) 
 		
-		NewTreeRoutes(assessmentGroup, ruleEngineUsecase, ruleEngineController)
+		NewYoungInfantTreeRoutes(assessmentGroup, youngInfantUsecase, youngInfantController)
+		NewChildTreeRoutes(assessmentGroup, childUsecase, childController)
 	}
 }

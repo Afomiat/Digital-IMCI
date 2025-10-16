@@ -1,4 +1,4 @@
-// ruleengine/engine/rule_engine.go
+// ruleengine/engine/young_infant_engine.go
 package engine
 
 import (
@@ -19,15 +19,16 @@ var (
 	ErrTreeNotFound          = errors.New("assessment tree not found")
 )
 
-type RuleEngine struct {
+type YoungInfantRuleEngine struct {
 	trees map[string]*domain.AssessmentTree
 }
 
-func NewRuleEngine() (*RuleEngine, error) {
-	engine := &RuleEngine{
+func NewYoungInfantRuleEngine() (*YoungInfantRuleEngine, error) {
+	engine := &YoungInfantRuleEngine{
 		trees: make(map[string]*domain.AssessmentTree),
 	}
 	
+	// Register only young infant trees (0-2 months)
 	engine.RegisterAssessmentTree(GetBirthAsphyxiaTree())
 	engine.RegisterAssessmentTree(GetVerySevereDiseaseTree())
 	engine.RegisterAssessmentTree(GetJaundiceTree())
@@ -37,19 +38,15 @@ func NewRuleEngine() (*RuleEngine, error) {
 	engine.RegisterAssessmentTree(GetHIVAssessmentTree())
 	engine.RegisterAssessmentTree(GetGestationClassificationTree())
 	engine.RegisterAssessmentTree(GetDevelopmentalAssessmentTree())
-
-
-
-
 	
 	return engine, nil
 }
 
-func (re *RuleEngine) RegisterAssessmentTree(tree *domain.AssessmentTree) {
+func (re *YoungInfantRuleEngine) RegisterAssessmentTree(tree *domain.AssessmentTree) {
 	re.trees[tree.AssessmentID] = tree
 }
 
-func (re *RuleEngine) GetAssessmentTree(assessmentID string) (*domain.AssessmentTree, error) {
+func (re *YoungInfantRuleEngine) GetAssessmentTree(assessmentID string) (*domain.AssessmentTree, error) {
 	tree, exists := re.trees[assessmentID]
 	if !exists {
 		return nil, fmt.Errorf("%w: %s", ErrTreeNotFound, assessmentID)
@@ -57,7 +54,7 @@ func (re *RuleEngine) GetAssessmentTree(assessmentID string) (*domain.Assessment
 	return tree, nil
 }
 
-func (re *RuleEngine) StartAssessmentFlow(assessmentID uuid.UUID, treeID string) (*domain.AssessmentFlow, error) {
+func (re *YoungInfantRuleEngine) StartAssessmentFlow(assessmentID uuid.UUID, treeID string) (*domain.AssessmentFlow, error) {
 	tree, err := re.GetAssessmentTree(treeID)
 	if err != nil {
 		return nil, err
@@ -65,7 +62,7 @@ func (re *RuleEngine) StartAssessmentFlow(assessmentID uuid.UUID, treeID string)
 
 	flow := &domain.AssessmentFlow{
 		AssessmentID: assessmentID,
-		TreeID:       treeID, 
+		TreeID:       treeID,
 		CurrentNode:  tree.StartNode,
 		Status:       domain.FlowStatusInProgress,
 		Answers:      make(map[string]interface{}),
@@ -76,7 +73,7 @@ func (re *RuleEngine) StartAssessmentFlow(assessmentID uuid.UUID, treeID string)
 	return flow, nil
 }
 
-func (re *RuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID string, answer interface{}) (*domain.AssessmentFlow, *domain.Question, error) {
+func (re *YoungInfantRuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID string, answer interface{}) (*domain.AssessmentFlow, *domain.Question, error) {
 	if flow.Status == domain.FlowStatusCompleted {
 		return nil, nil, ErrFlowAlreadyCompleted
 	}
@@ -108,25 +105,26 @@ func (re *RuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID string, a
 		case "very_severe_disease_check":
 			finalClassification = re.classifyVerySevereDisease(flow.Answers)
 		case "jaundice_check":
-			finalClassification = re.classifyJaundice(flow.Answers) 
+			finalClassification = re.classifyJaundice(flow.Answers)
 		case "diarrhea_check":
 			finalClassification = re.classifyDehydration(flow.Answers)
-			fmt.Printf("DEBUG: Diarrhea classification called, result: %s\n", finalClassification)
-		case "feeding_problem_underweight_check": 
+		case "feeding_problem_underweight_check":
 			finalClassification = re.classifyFeedingProblem(flow.Answers)
-			fmt.Printf("DEBUG: Feeding problem classification called, result: %s\n", finalClassification)
 		case "replacement_feeding_check":
 			finalClassification = re.classifyReplacementFeeding(flow.Answers)
-			fmt.Printf("DEBUG: Replacement feeding classification called, result: %s\n", finalClassification)
+		case "hiv_status_assessment":
+			finalClassification = re.classifyHIV(flow.Answers)
+		case "birth_asphyxia_check":
+			finalClassification = re.classifyBirthAsphyxia(flow.Answers)
+		case "gestation_classification":
+			finalClassification = re.classifyGestation(flow.Answers)
+		case "developmental_assessment":
+			finalClassification = re.classifyDevelopmentalAssessment(flow.Answers)
 		default:
 			finalClassification = "SEVERE_INFECTION_UNLIKELY"
 		}
 		
-		fmt.Printf("DEBUG: TreeID=%s, Classification=%s\n", flow.TreeID, finalClassification) 
-		
 		outcome, exists := tree.Outcomes[finalClassification]
-    	fmt.Printf("DEBUG: Outcome exists=%v\n", exists) 
-    
 		if exists {
 			flow.Classification = &domain.ClassificationResult{
 				Classification: outcome.Classification,
@@ -174,10 +172,8 @@ func (re *RuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID string, a
 	flow.Status = domain.FlowStatusCompleted
 	return flow, nil, nil
 }
-	
 
-
-func (re *RuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID string, answers map[string]interface{}) (*domain.AssessmentFlow, error) {
+func (re *YoungInfantRuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID string, answers map[string]interface{}) (*domain.AssessmentFlow, error) {
 	tree, err := re.GetAssessmentTree(treeID)
 	if err != nil {
 		return nil, err
@@ -206,11 +202,11 @@ func (re *RuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID stri
 		finalClassification = re.classifyFeedingProblem(answers)
 	case "replacement_feeding_check":
 		finalClassification = re.classifyReplacementFeeding(answers)
-	case "hiv_status_assessment": 
-		finalClassification = re.ClassifyHIV(answers)
+	case "hiv_status_assessment":
+		finalClassification = re.classifyHIV(answers)
 	case "birth_asphyxia_check":
-        finalClassification = re.classifyBirthAsphyxia(answers)
-	case "gestation_classification": 
+		finalClassification = re.classifyBirthAsphyxia(answers)
+	case "gestation_classification":
 		finalClassification = re.classifyGestation(answers)
 	case "developmental_assessment":
 		finalClassification = re.classifyDevelopmentalAssessment(answers)
@@ -238,52 +234,7 @@ func (re *RuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID stri
 	return flow, nil
 }
 
-func (re *RuleEngine) classifyDevelopmentalAssessment(answers map[string]interface{}) string {
-	severeClassification := answers["check_severe_classification"]
-	if severeClassification == "yes" {
-		return "SEVERE_CLASSIFICATION_NO_ASSESSMENT"
-	}
-
-	childAge := re.getNumericValue(answers["child_age_months"])
-	
-	if childAge < 2 {
-		return re.assessBirthMilestones(answers)
-	}
-
-	milestoneAssessment := answers["assess_milestones"]
-	if milestoneAssessment == "all_achieved" {
-		return "NO_DEVELOPMENTAL_DELAY"
-	} else {
-		return "SUSPECTED_DEVELOPMENTAL_DELAY"
-	}
-}
-
-func (re *RuleEngine) assessBirthMilestones(answers map[string]interface{}) string {
-	achievedMilestones := 0
-	totalMilestones := 5
-
-	milestones := []string{
-		"milestone_flexed_position",
-		"milestone_grasp_reflex", 
-		"milestone_prefers_faces",
-		"milestone_suckle_reflex",
-		"milestone_visual_tracking",
-	}
-
-	for _, milestone := range milestones {
-		if answers[milestone] == "yes" {
-			achievedMilestones++
-		}
-	}
-
-	if achievedMilestones == totalMilestones {
-		return "NO_DEVELOPMENTAL_DELAY"
-	} else {
-		return "SUSPECTED_DEVELOPMENTAL_DELAY"
-	}
-}
-
-func (re *RuleEngine) GetCurrentQuestion(flow *domain.AssessmentFlow) (*domain.Question, error) {
+func (re *YoungInfantRuleEngine) GetCurrentQuestion(flow *domain.AssessmentFlow) (*domain.Question, error) {
 	if flow.Status != domain.FlowStatusInProgress {
 		return nil, nil
 	}
@@ -296,7 +247,7 @@ func (re *RuleEngine) GetCurrentQuestion(flow *domain.AssessmentFlow) (*domain.Q
 	return re.findQuestion(tree, flow.CurrentNode)
 }
 
-func (re *RuleEngine) findQuestion(tree *domain.AssessmentTree, nodeID string) (*domain.Question, error) {
+func (re *YoungInfantRuleEngine) findQuestion(tree *domain.AssessmentTree, nodeID string) (*domain.Question, error) {
 	for _, question := range tree.QuestionsFlow {
 		if question.NodeID == nodeID {
 			return &question, nil
@@ -304,47 +255,49 @@ func (re *RuleEngine) findQuestion(tree *domain.AssessmentTree, nodeID string) (
 	}
 	return nil, ErrQuestionNotFound
 }
-func (re *RuleEngine) classifyBirthAsphyxia(answers map[string]interface{}) string {
-    checkAsphyxia := answers["check_birth_asphyxia"]
-    notBreathing := answers["not_breathing"]
-    gasping := answers["gasping"]
-    breathingPoorly := answers["breathing_poorly"]
-    breathingNormally := answers["breathing_normally"]
 
-    if checkAsphyxia == "no" {
-        return "NO_BIRTH_ASPHYXIA"
-    }
+func (re *YoungInfantRuleEngine) classifyBirthAsphyxia(answers map[string]interface{}) string {
+	checkAsphyxia := answers["check_birth_asphyxia"]
+	notBreathing := answers["not_breathing"]
+	gasping := answers["gasping"]
+	breathingPoorly := answers["breathing_poorly"]
+	breathingNormally := answers["breathing_normally"]
 
-    if notBreathing == "yes" {
-        return "BIRTH_ASPHYXIA"
-    }
-    if gasping == "yes" {
-        return "BIRTH_ASPHYXIA"
-    }
-    if breathingPoorly == "yes" {
-        return "BIRTH_ASPHYXIA"
-    }
-    if breathingNormally == "no" {
-        return "BIRTH_ASPHYXIA"
-    }
+	if checkAsphyxia == "no" {
+		return "NO_BIRTH_ASPHYXIA"
+	}
 
-    return "NO_BIRTH_ASPHYXIA"
+	if notBreathing == "yes" {
+		return "BIRTH_ASPHYXIA"
+	}
+	if gasping == "yes" {
+		return "BIRTH_ASPHYXIA"
+	}
+	if breathingPoorly == "yes" {
+		return "BIRTH_ASPHYXIA"
+	}
+	if breathingNormally == "no" {
+		return "BIRTH_ASPHYXIA"
+	}
+
+	return "NO_BIRTH_ASPHYXIA"
 }
-func (re *RuleEngine) classifyVerySevereDisease(answers map[string]interface{}) string {
+
+func (re *YoungInfantRuleEngine) classifyVerySevereDisease(answers map[string]interface{}) string {
 	feedingAbility := answers["feeding_ability_detail"]
 	convulsions := answers["convulsions_history"]
 	movements := answers["check_movements"]
-	breathingRate, _ := answers["breathing_rate"].(float64)
+	breathingRate := re.getNumericValue(answers["breathing_rate"])
 	chestIndrawing := answers["chest_indrawing"]
 	umbilicus := answers["umbilicus_check"]
 	skinPustules := answers["skin_pustules"]
-	temperature, _ := answers["temperature_measurement"].(float64)
+	temperature := re.getNumericValue(answers["temperature_measurement"])
 
 	if movements == "no_movement_even_stimulated" {
 		return "CRITICAL_ILLNESS"
 	}
 	if feedingAbility == "unable_to_feed" {
-		return "CRITICAL_ILLNESS" 
+		return "CRITICAL_ILLNESS"
 	}
 	if convulsions == "yes" {
 		return "CRITICAL_ILLNESS"
@@ -373,10 +326,10 @@ func (re *RuleEngine) classifyVerySevereDisease(answers map[string]interface{}) 
 	return "SEVERE_INFECTION_UNLIKELY"
 }
 
-func (re *RuleEngine) classifyJaundice(answers map[string]interface{}) string {
+func (re *YoungInfantRuleEngine) classifyJaundice(answers map[string]interface{}) string {
 	skinYellow := answers["skin_yellow"]
 	palmsSolesYellow := answers["palms_soles_yellow"]
-	age, _ := answers["infant_age"].(float64)
+	age := re.getNumericValue(answers["infant_age"])
 	
 	hasJaundice := skinYellow == "yes"
 	hasSevereSigns := palmsSolesYellow == "yes"
@@ -389,7 +342,7 @@ func (re *RuleEngine) classifyJaundice(answers map[string]interface{}) string {
 		return "SEVERE_JAUNDICE_URGENT"
 	}
 	
-	if age < 1 { 
+	if age < 1 {
 		return "SEVERE_JAUNDICE_URGENT"
 	}
 	
@@ -397,54 +350,54 @@ func (re *RuleEngine) classifyJaundice(answers map[string]interface{}) string {
 		return "SEVERE_JAUNDICE_URGENT"
 	}
 	
-	if age >= 1 && age < 14 { 
+	if age >= 1 && age < 14 {
 		return "JAUNDICE"
 	}
 	
 	return "NO_JAUNDICE"
 }
 
-func (re *RuleEngine) classifyDehydration(answers map[string]interface{}) string {
-    movementCondition := answers["movement_condition"]
-    skinPinch := answers["skin_pinch"]
-    otherSevere := answers["assess_other_severe"]
-    
-    var severity string
-    if movementCondition == "no_movement_even_when_stimulated" || skinPinch == "very_slowly_more_than_2_seconds" {
-        severity = "SEVERE_DEHYDRATION"
-    } else if skinPinch == "slowly" {
-        severity = "SOME_DEHYDRATION"
-    } else {
-        return "NO_DEHYDRATION"
-    }
-    
-    if otherSevere == "yes" {
-        if severity == "SEVERE_DEHYDRATION" {
-            return "SEVERE_DEHYDRATION_WITH_OTHER_SEVERE"
-        } else if severity == "SOME_DEHYDRATION" {
-            return "SOME_DEHYDRATION_WITH_OTHER_SEVERE"
-        }
-    } else {
-        if severity == "SEVERE_DEHYDRATION" {
-            return "SEVERE_DEHYDRATION_ALONE"
-        } else if severity == "SOME_DEHYDRATION" {
-            return "SOME_DEHYDRATION_ALONE"
-        }
-    }
-    
-    return "NO_DEHYDRATION"
+func (re *YoungInfantRuleEngine) classifyDehydration(answers map[string]interface{}) string {
+	movementCondition := answers["movement_condition"]
+	skinPinch := answers["skin_pinch"]
+	otherSevere := answers["assess_other_severe"]
+	
+	var severity string
+	if movementCondition == "no_movement_even_when_stimulated" || skinPinch == "very_slowly_more_than_2_seconds" {
+		severity = "SEVERE_DEHYDRATION"
+	} else if skinPinch == "slowly" {
+		severity = "SOME_DEHYDRATION"
+	} else {
+		return "NO_DEHYDRATION"
+	}
+	
+	if otherSevere == "yes" {
+		if severity == "SEVERE_DEHYDRATION" {
+			return "SEVERE_DEHYDRATION_WITH_OTHER_SEVERE"
+		} else if severity == "SOME_DEHYDRATION" {
+			return "SOME_DEHYDRATION_WITH_OTHER_SEVERE"
+		}
+	} else {
+		if severity == "SEVERE_DEHYDRATION" {
+			return "SEVERE_DEHYDRATION_ALONE"
+		} else if severity == "SOME_DEHYDRATION" {
+			return "SOME_DEHYDRATION_ALONE"
+		}
+	}
+	
+	return "NO_DEHYDRATION"
 }
 
-func (re *RuleEngine) classifyFeedingProblem(answers map[string]interface{}) string {
+func (re *YoungInfantRuleEngine) classifyFeedingProblem(answers map[string]interface{}) string {
 	breastfeedingStatus := answers["breastfeeding_status"]
-	breastfeedingFrequency, _ := answers["breastfeeding_frequency"].(float64)
+	breastfeedingFrequency := re.getNumericValue(answers["breastfeeding_frequency"])
 	emptyBreast := answers["empty_breast_before_switching"]
 	increaseDuringIllness := answers["increase_frequency_illness"]
 	otherFoodsDrinks := answers["other_foods_drinks"]
 	positioning := answers["observe_positioning"]
 	attachment := answers["observe_attachment"]
 	suckling := answers["observe_suckling"]
-	weightAge, _ := answers["weight_age_assessment"].(float64)
+	weightAge := re.getNumericValue(answers["weight_age_assessment"])
 	thrush := answers["oral_thrush_check"]
 
 	hasFeedingProblem := false
@@ -481,17 +434,16 @@ func (re *RuleEngine) classifyFeedingProblem(answers map[string]interface{}) str
 	return "NO_FEEDING_PROBLEM_NOT_UNDERWEIGHT"
 }
 
-func (re *RuleEngine) classifyReplacementFeeding(answers map[string]interface{}) string {
+func (re *YoungInfantRuleEngine) classifyReplacementFeeding(answers map[string]interface{}) string {
 	milkType := answers["milk_type"]
 	preparationMethod := answers["preparation_method_non_bf"]
 	breastMilkGiven := answers["breast_milk_given_non_bf"]
 	additionalFoods := answers["additional_foods_fluids_non_bf"]
 	feedingMethod := answers["feeding_method_non_bf"]
 	utensilCleaning := answers["utensil_cleaning_non_bf"]
-	weightAge, _ := answers["weight_age_assessment_non_bf"].(float64)
+	weightAge := re.getNumericValue(answers["weight_age_assessment_non_bf"])
 	thrush := answers["oral_thrush_check_non_bf"]
-	
-	amountPerFeed, _ := answers["amount_per_feed_non_bf"].(float64)
+	amountPerFeed := re.getNumericValue(answers["amount_per_feed_non_bf"])
 
 	hasFeedingProblem := false
 
@@ -533,7 +485,7 @@ func (re *RuleEngine) classifyReplacementFeeding(answers map[string]interface{})
 	return "NO_FEEDING_PROBLEM_NOT_UNDERWEIGHT"
 }
 
-func (re *RuleEngine) ClassifyHIV(answers map[string]interface{}) string {
+func (re *YoungInfantRuleEngine) classifyHIV(answers map[string]interface{}) string {
 	motherStatus := answers["mother_hiv_status"]
 	antibodyStatus := answers["infant_antibody_status"]
 	pcrStatus := answers["infant_dna_pcr_status"]
@@ -568,7 +520,7 @@ func (re *RuleEngine) ClassifyHIV(answers map[string]interface{}) string {
 	return "HIV_INFECTION_UNLIKELY"
 }
 
-func (re *RuleEngine) classifyGestation(answers map[string]interface{}) string {
+func (re *YoungInfantRuleEngine) classifyGestation(answers map[string]interface{}) string {
 	gestationalAge := re.getNumericValue(answers["gestational_age_weeks"])
 	birthWeight := re.getNumericValue(answers["birth_weight_grams"])
 	currentWeight := re.getNumericValue(answers["current_weight_grams"])
@@ -624,7 +576,52 @@ func (re *RuleEngine) classifyGestation(answers map[string]interface{}) string {
 	return "LOW_BIRTH_WEIGHT"
 }
 
-func (re *RuleEngine) getNumericValue(value interface{}) float64 {
+func (re *YoungInfantRuleEngine) classifyDevelopmentalAssessment(answers map[string]interface{}) string {
+	severeClassification := answers["check_severe_classification"]
+	if severeClassification == "yes" {
+		return "SEVERE_CLASSIFICATION_NO_ASSESSMENT"
+	}
+
+	childAge := re.getNumericValue(answers["child_age_months"])
+	
+	if childAge < 2 {
+		return re.assessBirthMilestones(answers)
+	}
+
+	milestoneAssessment := answers["assess_milestones"]
+	if milestoneAssessment == "all_achieved" {
+		return "NO_DEVELOPMENTAL_DELAY"
+	} else {
+		return "SUSPECTED_DEVELOPMENTAL_DELAY"
+	}
+}
+
+func (re *YoungInfantRuleEngine) assessBirthMilestones(answers map[string]interface{}) string {
+	achievedMilestones := 0
+	totalMilestones := 5
+
+	milestones := []string{
+		"milestone_flexed_position",
+		"milestone_grasp_reflex",
+		"milestone_prefers_faces",
+		"milestone_suckle_reflex",
+		"milestone_visual_tracking",
+	}
+
+	for _, milestone := range milestones {
+		if answers[milestone] == "yes" {
+			achievedMilestones++
+		}
+	}
+
+	if achievedMilestones == totalMilestones {
+		return "NO_DEVELOPMENTAL_DELAY"
+	} else {
+		return "SUSPECTED_DEVELOPMENTAL_DELAY"
+	}
+}
+
+func (re *YoungInfantRuleEngine) getNumericValue(value interface{}) float64 {
 	if value == nil {
 		return 0
 	}
@@ -645,7 +642,8 @@ func (re *RuleEngine) getNumericValue(value interface{}) float64 {
 		return 0
 	}
 }
-func (re *RuleEngine) formatAnswer(question *domain.Question, answer interface{}) string {
+
+func (re *YoungInfantRuleEngine) formatAnswer(question *domain.Question, answer interface{}) string {
 	switch question.QuestionType {
 	case "number_input":
 		return "value_based"
@@ -654,9 +652,7 @@ func (re *RuleEngine) formatAnswer(question *domain.Question, answer interface{}
 	}
 }
 
-
-
-func (re *RuleEngine) ShouldShowQuestion(flow *domain.AssessmentFlow, question domain.Question) bool {
+func (re *YoungInfantRuleEngine) ShouldShowQuestion(flow *domain.AssessmentFlow, question domain.Question) bool {
 	if question.ShowCondition == "" {
 		return true
 	}
@@ -669,7 +665,7 @@ func (re *RuleEngine) ShouldShowQuestion(flow *domain.AssessmentFlow, question d
 	return re.evaluateCondition(flow, tree, question.ShowCondition)
 }
 
-func (re *RuleEngine) evaluateCondition(flow *domain.AssessmentFlow, tree *domain.AssessmentTree, condition string) bool {
+func (re *YoungInfantRuleEngine) evaluateCondition(flow *domain.AssessmentFlow, tree *domain.AssessmentTree, condition string) bool {
 	conditions := strings.Split(condition, " AND ")
 	for _, condition := range conditions {
 		condition = strings.TrimSpace(condition)
@@ -680,7 +676,7 @@ func (re *RuleEngine) evaluateCondition(flow *domain.AssessmentFlow, tree *domai
 	return true
 }
 
-func (re *RuleEngine) evaluateSingleCondition(flow *domain.AssessmentFlow, tree *domain.AssessmentTree, condition string) bool {
+func (re *YoungInfantRuleEngine) evaluateSingleCondition(flow *domain.AssessmentFlow, tree *domain.AssessmentTree, condition string) bool {
 	parts := strings.Split(condition, ".")
 	if len(parts) != 2 {
 		return false
@@ -697,10 +693,15 @@ func (re *RuleEngine) evaluateSingleCondition(flow *domain.AssessmentFlow, tree 
 	return fmt.Sprintf("%v", actualAnswer) == expectedAnswer
 }
 
-func (re *RuleEngine) GetAvailableTrees() []string {
+func (re *YoungInfantRuleEngine) GetAvailableTrees() []string {
 	treeIDs := make([]string, 0, len(re.trees))
 	for treeID := range re.trees {
 		treeIDs = append(treeIDs, treeID)
 	}
 	return treeIDs
+}
+
+// GetTreeQuestions returns the assessment tree with all questions
+func (re *YoungInfantRuleEngine) GetTreeQuestions(treeID string) (*domain.AssessmentTree, error) {
+	return re.GetAssessmentTree(treeID)
 }

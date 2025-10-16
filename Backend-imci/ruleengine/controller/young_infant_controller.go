@@ -1,31 +1,27 @@
+// ruleengine/controller/young_infant_controller.go
 package controller
 
 import (
 	"net/http"
 
 	"github.com/Afomiat/Digital-IMCI/ruleengine/domain"
-	"github.com/Afomiat/Digital-IMCI/ruleengine/usecase"
+	younginfantusecase "github.com/Afomiat/Digital-IMCI/ruleengine/usecase"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-type RuleEngineController struct {
-	ruleEngineUsecase *usecase.RuleEngineUsecase
+type YoungInfantRuleEngineController struct {
+	youngInfantRuleEngineUsecase *younginfantusecase.YoungInfantRuleEngineUsecase
 }
 
-func NewRuleEngineController(ruleEngineUsecase *usecase.RuleEngineUsecase) *RuleEngineController {
-	return &RuleEngineController{
-		ruleEngineUsecase: ruleEngineUsecase,
+func NewYoungInfantRuleEngineController(youngInfantRuleEngineUsecase *younginfantusecase.YoungInfantRuleEngineUsecase) *YoungInfantRuleEngineController {
+	return &YoungInfantRuleEngineController{
+		youngInfantRuleEngineUsecase: youngInfantRuleEngineUsecase,
 	}
 }
 
-type ErrorResponse struct {
-	Error   string `json:"error"`
-	Message string `json:"message"`
-	Code    string `json:"code"`
-}
 
-func (rc *RuleEngineController) StartAssessmentFlow(c *gin.Context) {
+func (rc *YoungInfantRuleEngineController) StartAssessmentFlow(c *gin.Context) {
 	var req struct {
 		TreeID string `json:"tree_id" binding:"required"`
 	}
@@ -61,7 +57,7 @@ func (rc *RuleEngineController) StartAssessmentFlow(c *gin.Context) {
 
 	mpID := medicalProfessionalID.(uuid.UUID)
 
-	response, err := rc.ruleEngineUsecase.StartAssessmentFlow(c.Request.Context(), domain.StartFlowRequest{
+	response, err := rc.youngInfantRuleEngineUsecase.StartAssessmentFlow(c.Request.Context(), domain.StartFlowRequest{
 		AssessmentID: assessmentID, 
 		TreeID:       req.TreeID,
 	}, mpID)
@@ -81,7 +77,7 @@ func (rc *RuleEngineController) StartAssessmentFlow(c *gin.Context) {
 	})
 }
 
-func (rc *RuleEngineController) SubmitAnswer(c *gin.Context) {
+func (rc *YoungInfantRuleEngineController) SubmitAnswer(c *gin.Context) {
 	var req struct {
 		NodeID string      `json:"node_id" binding:"required"`
 		Answer interface{} `json:"answer" binding:"required"`
@@ -118,7 +114,7 @@ func (rc *RuleEngineController) SubmitAnswer(c *gin.Context) {
 
 	mpID := medicalProfessionalID.(uuid.UUID)
 
-	response, err := rc.ruleEngineUsecase.SubmitAnswer(c.Request.Context(), domain.SubmitAnswerRequest{
+	response, err := rc.youngInfantRuleEngineUsecase.SubmitAnswer(c.Request.Context(), domain.SubmitAnswerRequest{
 		AssessmentID: assessmentID, 
 		NodeID:       req.NodeID,
 		Answer:       req.Answer,
@@ -140,7 +136,7 @@ func (rc *RuleEngineController) SubmitAnswer(c *gin.Context) {
 }
 
 // Batch Processing Endpoints
-func (ctrl *RuleEngineController) ProcessBatchAssessment(c *gin.Context) {
+func (ctrl *YoungInfantRuleEngineController) ProcessBatchAssessment(c *gin.Context) {
     var req domain.BatchProcessRequest
     if err := c.ShouldBindJSON(&req); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{
@@ -166,7 +162,7 @@ func (ctrl *RuleEngineController) ProcessBatchAssessment(c *gin.Context) {
         return
     }
 
-    response, err := ctrl.ruleEngineUsecase.ProcessBatchAssessment(
+    response, err := ctrl.youngInfantRuleEngineUsecase.ProcessBatchAssessment(
         c.Request.Context(), 
         req, 
         medicalProfessionalID,
@@ -182,7 +178,7 @@ func (ctrl *RuleEngineController) ProcessBatchAssessment(c *gin.Context) {
     c.JSON(http.StatusOK, response)
 }
 
-func (ctrl *RuleEngineController) GetTreeQuestions(c *gin.Context) {
+func (ctrl *YoungInfantRuleEngineController) GetTreeQuestions(c *gin.Context) {
 	treeID := c.Param("treeId")
 	if treeID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -191,7 +187,7 @@ func (ctrl *RuleEngineController) GetTreeQuestions(c *gin.Context) {
 		return
 	}
 
-	tree, err := ctrl.ruleEngineUsecase.GetTreeQuestions(treeID)
+	tree, err := ctrl.youngInfantRuleEngineUsecase.GetTreeQuestions(treeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to get tree questions",

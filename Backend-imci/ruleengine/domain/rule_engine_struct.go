@@ -18,6 +18,13 @@ type AssessmentFlow struct {
 	UpdatedAt          time.Time              `json:"updated_at"`
 }
 
+
+type AgeGroup string
+
+const (
+    AgeGroupYoungInfant AgeGroup = "young_infant"
+    AgeGroupChild       AgeGroup = "child"
+)
 type FlowStatus string
 
 const (

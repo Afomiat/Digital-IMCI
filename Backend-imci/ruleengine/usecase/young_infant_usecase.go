@@ -1,3 +1,4 @@
+// ruleengine/usecase/young_infant_usecase.go
 package usecase
 
 import (
@@ -12,8 +13,8 @@ import (
 	"github.com/google/uuid"
 )
 
-type RuleEngineUsecase struct {
-	ruleEngine                      *engine.RuleEngine
+type YoungInfantRuleEngineUsecase struct {
+	ruleEngine                      *engine.YoungInfantRuleEngine
 	assessmentRepo                  domain.AssessmentRepository
 	medicalProfessionalAnswerRepo   domain.MedicalProfessionalAnswerRepository
 	clinicalFindingsRepo            domain.ClinicalFindingsRepository
@@ -23,8 +24,8 @@ type RuleEngineUsecase struct {
 	contextTimeout                  time.Duration
 }
 
-func NewRuleEngineUsecase(
-	ruleEngine *engine.RuleEngine,
+func NewYoungInfantRuleEngineUsecase(
+	ruleEngine *engine.YoungInfantRuleEngine,
 	assessmentRepo domain.AssessmentRepository,
 	medicalProfessionalAnswerRepo domain.MedicalProfessionalAnswerRepository,
 	clinicalFindingsRepo domain.ClinicalFindingsRepository,
@@ -32,8 +33,8 @@ func NewRuleEngineUsecase(
 	treatmentPlanRepo domain.TreatmentPlanRepository,
 	counselingRepo domain.CounselingRepository,
 	timeout time.Duration,
-) *RuleEngineUsecase {
-	return &RuleEngineUsecase{
+) *YoungInfantRuleEngineUsecase {
+	return &YoungInfantRuleEngineUsecase{
 		ruleEngine:                    ruleEngine,
 		assessmentRepo:                assessmentRepo,
 		medicalProfessionalAnswerRepo: medicalProfessionalAnswerRepo,
@@ -45,7 +46,7 @@ func NewRuleEngineUsecase(
 	}
 }
 
-func (uc *RuleEngineUsecase) StartAssessmentFlow(ctx context.Context, req ruleenginedomain.StartFlowRequest, medicalProfessionalID uuid.UUID) (*ruleenginedomain.StartFlowResponse, error) {
+func (uc *YoungInfantRuleEngineUsecase) StartAssessmentFlow(ctx context.Context, req ruleenginedomain.StartFlowRequest, medicalProfessionalID uuid.UUID) (*ruleenginedomain.StartFlowResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, uc.contextTimeout)
 	defer cancel()
 
@@ -91,7 +92,7 @@ func (uc *RuleEngineUsecase) StartAssessmentFlow(ctx context.Context, req ruleen
 	}, nil
 }
 
-func (uc *RuleEngineUsecase) SubmitAnswer(ctx context.Context, req ruleenginedomain.SubmitAnswerRequest, medicalProfessionalID uuid.UUID) (*ruleenginedomain.SubmitAnswerResponse, error) {
+func (uc *YoungInfantRuleEngineUsecase) SubmitAnswer(ctx context.Context, req ruleenginedomain.SubmitAnswerRequest, medicalProfessionalID uuid.UUID) (*ruleenginedomain.SubmitAnswerResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, uc.contextTimeout)
 	defer cancel()
 
@@ -107,7 +108,7 @@ func (uc *RuleEngineUsecase) SubmitAnswer(ctx context.Context, req ruleenginedom
 
 	flow := &ruleenginedomain.AssessmentFlow{
 		AssessmentID: req.AssessmentID,
-		TreeID:       medicalProfessionalAnswer.QuestionSetVersion, 
+		TreeID:       medicalProfessionalAnswer.QuestionSetVersion,
 		Answers:      map[string]interface{}(medicalProfessionalAnswer.Answers),
 		Status:       ruleenginedomain.FlowStatusInProgress,
 		CreatedAt:    medicalProfessionalAnswer.CreatedAt,
@@ -155,7 +156,7 @@ func (uc *RuleEngineUsecase) SubmitAnswer(ctx context.Context, req ruleenginedom
 	}, nil
 }
 
-func (uc *RuleEngineUsecase) ProcessBatchAssessment(ctx context.Context, req ruleenginedomain.BatchProcessRequest, medicalProfessionalID uuid.UUID) (*ruleenginedomain.BatchProcessResponse, error) {
+func (uc *YoungInfantRuleEngineUsecase) ProcessBatchAssessment(ctx context.Context, req ruleenginedomain.BatchProcessRequest, medicalProfessionalID uuid.UUID) (*ruleenginedomain.BatchProcessResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, uc.contextTimeout)
 	defer cancel()
 
@@ -195,13 +196,13 @@ func (uc *RuleEngineUsecase) ProcessBatchAssessment(ctx context.Context, req rul
 	}
 
 	return &ruleenginedomain.BatchProcessResponse{
-		AssessmentID:  req.AssessmentID,
+		AssessmentID:   req.AssessmentID,
 		Classification: flow.Classification,
 		Status:         flow.Status,
 	}, nil
 }
 
-func (uc *RuleEngineUsecase) GetTreeQuestions(treeID string) (*ruleenginedomain.AssessmentTree, error) {
+func (uc *YoungInfantRuleEngineUsecase) GetTreeQuestions(treeID string) (*ruleenginedomain.AssessmentTree, error) {
 	tree, err := uc.ruleEngine.GetAssessmentTree(treeID)
 	if err != nil {
 		return nil, err
@@ -209,12 +210,11 @@ func (uc *RuleEngineUsecase) GetTreeQuestions(treeID string) (*ruleenginedomain.
 	return tree, nil
 }
 
-func (uc *RuleEngineUsecase) GetAssessmentTree(treeID string) (*ruleenginedomain.AssessmentTree, error) {
+func (uc *YoungInfantRuleEngineUsecase) GetAssessmentTree(treeID string) (*ruleenginedomain.AssessmentTree, error) {
 	return uc.ruleEngine.GetAssessmentTree(treeID)
 }
 
-
-func (uc *RuleEngineUsecase) saveClassificationResults(ctx context.Context, assessment *domain.Assessment, classification *ruleenginedomain.ClassificationResult) error {
+func (uc *YoungInfantRuleEngineUsecase) saveClassificationResults(ctx context.Context, assessment *domain.Assessment, classification *ruleenginedomain.ClassificationResult) error {
 	if classification == nil {
 		return nil
 	}
@@ -225,7 +225,7 @@ func (uc *RuleEngineUsecase) saveClassificationResults(ctx context.Context, asse
 		Disease:               classification.Classification,
 		Color:                 classification.Color,
 		Details:               classification.TreatmentPlan,
-		RuleVersion:           "imci_2021_v1", 
+		RuleVersion:           "imci_2021_v1",
 		IsCriticalIllness:     classification.Emergency,
 		RequiresUrgentReferral: classification.Emergency,
 		TreatmentPriority:     uc.getTreatmentPriority(classification.Classification),
@@ -270,8 +270,7 @@ func (uc *RuleEngineUsecase) saveClassificationResults(ctx context.Context, asse
 	return nil
 }
 
-
-func (uc *RuleEngineUsecase) getTreatmentPriority(classification string) int {
+func (uc *YoungInfantRuleEngineUsecase) getTreatmentPriority(classification string) int {
 	switch classification {
 	case "CRITICAL ILLNESS", "VERY SEVERE DISEASE", "VERY LOW BIRTH WEIGHT AND/OR VERY PRETERM", "SEVERE CLASSIFICATION - NO DEVELOPMENTAL ASSESSMENT":
 		return 1
@@ -282,7 +281,7 @@ func (uc *RuleEngineUsecase) getTreatmentPriority(classification string) int {
 	}
 }
 
-func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classification *domain.Classification, result *ruleenginedomain.ClassificationResult) error {
+func (uc *YoungInfantRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classification *domain.Classification, result *ruleenginedomain.ClassificationResult) error {
 	var plans []*domain.TreatmentPlan
 	
 	switch result.Classification {
@@ -385,7 +384,7 @@ func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classificat
 				Instructions:        "Give before referral to hospital",
 			},
 		}
-	case "SEVERE DEHYDRATION": 
+	case "SEVERE DEHYDRATION":
 		plans = []*domain.TreatmentPlan{
 			{
 				ID:                  uuid.New(),
@@ -400,7 +399,7 @@ func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classificat
 				Instructions:        "Give frequent sips during transport to hospital",
 			},
 		}
-	case "SOME DEHYDRATION", "PROLONGED DIARRHEA": 
+	case "SOME DEHYDRATION", "PROLONGED DIARRHEA":
 		plans = []*domain.TreatmentPlan{
 			{
 				ID:                  uuid.New(),
@@ -454,7 +453,7 @@ func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classificat
 				Instructions:        "Give zinc supplement",
 			},
 		}
-	case "FEEDING PROBLEM OR UNDERWEIGHT": 
+	case "FEEDING PROBLEM OR UNDERWEIGHT":
 		plans = []*domain.TreatmentPlan{
 			{
 				ID:                  uuid.New(),
@@ -650,8 +649,7 @@ func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classificat
 				Instructions:        "Advise on responsive caregiving, talking, reading, singing and play",
 			},
 		}
-}
-
+	}
 
 	for _, plan := range plans {
 		if err := uc.treatmentPlanRepo.Create(ctx, plan); err != nil {
@@ -661,4 +659,3 @@ func (uc *RuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classificat
 
 	return nil
 }
-

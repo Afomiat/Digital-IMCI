@@ -12,7 +12,6 @@ import (
 func TestBirthAsphyxiaTreeContract(t *testing.T) {
 	tree := engine.GetBirthAsphyxiaTree()
 
-	// Contract: Tree must have valid structure
 	t.Run("Tree structure contract", func(t *testing.T) {
 		assert.NotEmpty(t, tree.AssessmentID)
 		assert.NotEmpty(t, tree.Title)
@@ -22,7 +21,6 @@ func TestBirthAsphyxiaTreeContract(t *testing.T) {
 		assert.NotEmpty(t, tree.Outcomes)
 	})
 
-	// Contract: Start node must exist in questions
 	t.Run("Start node exists contract", func(t *testing.T) {
 		startNodeExists := false
 		for _, question := range tree.QuestionsFlow {
