@@ -171,6 +171,11 @@ func setupChildTreeRoutes(
 					"title":       "Check for Fever",
 					"description": "Assess child for fever, malaria risk, and measles complications",
 			},
+			{
+				"id":          "child_ear_problem", 
+				"title":       "Check for Ear Problems", 
+				"description": "Assess for ear pain, discharge, and signs of infection",
+			},
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"trees": trees,
@@ -196,7 +201,9 @@ func setupChildTreeRoutes(
 	childGroup.GET("/tree/fever", func(c *gin.Context) {
 			getChildTreeHandler(c, childUsecase, "child_fever")
 		})
-
+	childGroup.GET("/tree/ear_problem", func(c *gin.Context) {
+		getChildTreeHandler(c, childUsecase, "child_ear_problem")
+	})
 	
 
 	childGroup.POST("/:id/start-flow", childController.StartAssessmentFlow)

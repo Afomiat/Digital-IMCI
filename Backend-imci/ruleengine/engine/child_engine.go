@@ -24,6 +24,7 @@ func NewChildRuleEngine() (*ChildRuleEngine, error) {
 	engine.RegisterAssessmentTree(GetChildCoughDifficultBreathingTree())
 	engine.RegisterAssessmentTree(GetChildDiarrheaTree()) 
 	engine.RegisterAssessmentTree(GetChildFeverTree())
+	engine.RegisterAssessmentTree(GetChildEarProblemTree())
 	
 	
 	return engine, nil
@@ -177,6 +178,8 @@ func (re *ChildRuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID
 		finalClassification = re.classifyChildDiarrhea(answers)
 	case "child_fever":
 		finalClassification = re.classifyFever(answers)
+	case "child_ear_problem": 
+		finalClassification = re.classifyEarProblem(answers)
 	default:
 		finalClassification = "NO_DANGER_SIGNS"
 		
@@ -371,6 +374,34 @@ func (re *ChildRuleEngine) classifyFever(answers map[string]interface{}) string 
 	return "FEVER_NO_MALARIA"
 }
 
+func (re *ChildRuleEngine) classifyEarProblem(answers map[string]interface{}) string {
+	earPain := answers["ear_pain"]
+	pusDraining := answers["pus_draining"]
+	dischargeDuration := answers["discharge_duration"]
+	tenderSwelling := answers["tender_swelling"]
+
+	if tenderSwelling == "yes" {
+		return "MASTOIDITIS"
+	}
+
+	if earPain == "yes" {
+		return "ACUTE_EAR_INFECTION"
+	}
+
+	if pusDraining == "yes" {
+		if dischargeDuration == "less_than_14_days" {
+			return "ACUTE_EAR_INFECTION"
+		} else if dischargeDuration == "14_days_or_more" {
+			return "CHRONIC_EAR_INFECTION"
+		}
+	}
+
+	if earPain == "no" && pusDraining == "no" {
+		return "NO_EAR_INFECTION"
+	}
+
+	return "NO_EAR_INFECTION" 
+}
 
 func (re *ChildRuleEngine) formatAnswer(question *domain.Question, answer interface{}) string {
 	switch question.QuestionType {
