@@ -272,11 +272,11 @@ func (uc *ChildRuleEngineUsecase) saveClassificationResults(ctx context.Context,
 
 func (uc *ChildRuleEngineUsecase) getTreatmentPriority(classification string) int {
 	switch classification {
-	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE PERSISTENT DIARRHOEA", "SEVERE MALNUTRITION", "VERY SEVERE FEBRILE DISEASE", "SEVERE COMPLICATED MEASLES", "MASTOIDITIS": 
+	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE PERSISTENT DIARRHOEA", "SEVERE MALNUTRITION", "VERY SEVERE FEBRILE DISEASE", "SEVERE COMPLICATED MEASLES", "MASTOIDITIS", "SEVERE ANEMIA": 
 		return 1
-	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION", "CHRONIC EAR INFECTION", "MALARIA_HIGH_RISK", "MALARIA_LOW_RISK", "MEASLES WITH EYE OR MOUTH COMPLICATIONS": 
+	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION", "CHRONIC EAR INFECTION", "MALARIA_HIGH_RISK", "MALARIA_LOW_RISK", "MEASLES WITH EYE OR MOUTH COMPLICATIONS", "ANEMIA": 
 		return 2
-	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK", "FEVER_NO_MALARIA", "MEASLES_NO_COMPLICATIONS", "NO EAR INFECTION": 
+	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK", "FEVER_NO_MALARIA", "MEASLES_NO_COMPLICATIONS", "NO EAR INFECTION", "NO ANEMIA": 
 		return 3
 	default:
 		return 3
@@ -810,6 +810,53 @@ func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classi
 		}
 	case "NO EAR INFECTION":
 		plans = []*domain.TreatmentPlan{}
+		case "SEVERE ANEMIA":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Urgent referral",
+				Dosage:              "N/A",
+				Frequency:           "Immediate",
+				Duration:            "N/A",
+				AdministrationRoute: "N/A",
+				IsPreReferral:       true,
+				Instructions:        "Refer URGENTLY to hospital for severe anemia management",
+			},
+		}
+	case "ANEMIA":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Iron supplement",
+				Dosage:              "Based on weight and age",
+				Frequency:           "Once daily",
+				Duration:            "3 months",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give iron supplementation for anemia",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Albendazole/Mebendazole",
+				Dosage:              "Based on age",
+				Frequency:           "Single dose",
+				Duration:            "Once",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give if child ≥ 1 year and no dose in previous 6 months",
+			},
+		}
+	case "NO ANEMIA":
+	
+		plans = []*domain.TreatmentPlan{}
+		
+	
 	default:
 		plans = []*domain.TreatmentPlan{}
 	}

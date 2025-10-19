@@ -25,6 +25,7 @@ func NewChildRuleEngine() (*ChildRuleEngine, error) {
 	engine.RegisterAssessmentTree(GetChildDiarrheaTree()) 
 	engine.RegisterAssessmentTree(GetChildFeverTree())
 	engine.RegisterAssessmentTree(GetChildEarProblemTree())
+	engine.RegisterAssessmentTree(GetChildAnemiaTree())
 	
 	
 	return engine, nil
@@ -180,6 +181,8 @@ func (re *ChildRuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID
 		finalClassification = re.classifyFever(answers)
 	case "child_ear_problem": 
 		finalClassification = re.classifyEarProblem(answers)
+	case "child_anemia_check":
+		finalClassification = re.classifyAnemia(answers)
 	default:
 		finalClassification = "NO_DANGER_SIGNS"
 		
@@ -401,6 +404,52 @@ func (re *ChildRuleEngine) classifyEarProblem(answers map[string]interface{}) st
 	}
 
 	return "NO_EAR_INFECTION" 
+}
+
+func (re *ChildRuleEngine) classifyAnemia(answers map[string]interface{}) string {
+	palmarPallorPresent := answers["palmar_pallor_present"]
+	palmarPallorSeverity := answers["palmar_pallor_severity"]
+	hbValue := answers["hb_value"]
+	hctValue := answers["hct_value"]
+	classifyByPallor := answers["classify_by_pallor_only"]
+
+	if hbValue != nil {
+		if hb, ok := hbValue.(float64); ok {
+			if hb < 7.0 {
+				return "SEVERE_ANEMIA"
+			} else if hb >= 7.0 && hb < 11.0 {
+				return "ANEMIA"
+			} else if hb >= 11.0 {
+				return "NO_ANEMIA"
+			}
+		}
+	}
+
+	if hctValue != nil {
+		if hct, ok := hctValue.(float64); ok {
+			if hct < 21.0 {
+				return "SEVERE_ANEMIA"
+			} else if hct >= 21.0 && hct < 33.0 {
+				return "ANEMIA"
+			} else if hct >= 33.0 {
+				return "NO_ANEMIA"
+			}
+		}
+	}
+
+	if classifyByPallor != nil {
+		if classifyByPallor == "severe_pallor" {
+			return "SEVERE_ANEMIA"
+		} else if classifyByPallor == "some_pallor" {
+			return "ANEMIA"
+		}
+	}
+
+	if palmarPallorPresent == "no" || palmarPallorSeverity == "no_palmar_pallor" {
+		return "NO_ANEMIA"
+	}
+
+	return "NO_ANEMIA" 
 }
 
 func (re *ChildRuleEngine) formatAnswer(question *domain.Question, answer interface{}) string {
