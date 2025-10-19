@@ -272,17 +272,16 @@ func (uc *ChildRuleEngineUsecase) saveClassificationResults(ctx context.Context,
 
 func (uc *ChildRuleEngineUsecase) getTreatmentPriority(classification string) int {
 	switch classification {
-	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE PERSISTENT DIARRHOEA", "SEVERE MALNUTRITION":
+	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE PERSISTENT DIARRHOEA", "SEVERE MALNUTRITION", "VERY SEVERE FEBRILE DISEASE", "SEVERE COMPLICATED MEASLES":
 		return 1
-	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION":
+	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION", "MALARIA_HIGH_RISK", "MALARIA_LOW_RISK", "MEASLES WITH EYE OR MOUTH COMPLICATIONS":
 		return 2
-	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK":
+	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK", "FEVER_NO_MALARIA", "MEASLES_NO_COMPLICATIONS":
 		return 3
 	default:
 		return 3
 	}
 }
-
 func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classification *domain.Classification, result *ruleenginedomain.ClassificationResult) error {
 	var plans []*domain.TreatmentPlan
 	
@@ -552,6 +551,197 @@ func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classi
 				AdministrationRoute: "Oral",
 				IsPreReferral:       false,
 				Instructions:        "Treat for 3 days with Ciprofloxacin",
+			},
+		}
+	case "VERY SEVERE FEBRILE DISEASE":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "First dose of IV/IM Ampicillin and Gentamicin",
+				Dosage:              "Based on weight",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "IM/IV",
+				IsPreReferral:       true,
+				Instructions:        "Give before referral to hospital",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "First dose IV/IM Artesunate",
+				Dosage:              "Based on weight",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "IM/IV",
+				IsPreReferral:       true,
+				Instructions:        "Give for severe malaria if high malaria risk",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Paracetamol",
+				Dosage:              "Based on weight",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       true,
+				Instructions:        "Give for high fever (≥38.5°C) in health facility",
+			},
+		}
+
+	case "MALARIA_HIGH_RISK", "MALARIA_LOW_RISK":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Artemisinin-Lumefantrine (AL)",
+				Dosage:              "Based on weight",
+				Frequency:           "Twice daily",
+				Duration:            "3 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Treat for P. falciparum or mixed infection",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Primaquine",
+				Dosage:              "Based on weight",
+				Frequency:           "Once daily",
+				Duration:            "14 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give for P. falciparum gametocytes",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Paracetamol",
+				Dosage:              "Based on weight",
+				Frequency:           "As needed",
+				Duration:            "Until fever resolves",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give for high fever (≥38.5°C)",
+			},
+		}
+
+	case "FEVER_NO_MALARIA":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Paracetamol",
+				Dosage:              "Based on weight",
+				Frequency:           "As needed",
+				Duration:            "Until fever resolves",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give one dose for high fever (≥38.5°C)",
+			},
+		}
+
+	case "SEVERE COMPLICATED MEASLES":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Vitamin A",
+				Dosage:              "Based on age",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       true,
+				Instructions:        "Give first dose before referral",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "IV/IM Ampicillin and Gentamicin",
+				Dosage:              "Based on weight",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "IM/IV",
+				IsPreReferral:       true,
+				Instructions:        "Give first dose before referral",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Tetracycline eye ointment",
+				Dosage:              "Apply to both eyes",
+				Frequency:           "4 times daily",
+				Duration:            "7 days",
+				AdministrationRoute: "Topical",
+				IsPreReferral:       true,
+				Instructions:        "Apply if clouding cornea or pus draining from eye",
+			},
+		}
+
+	case "MEASLES WITH EYE OR MOUTH COMPLICATIONS":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Vitamin A",
+				Dosage:              "Therapeutic dose based on age",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give therapeutic dose",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Tetracycline eye ointment",
+				Dosage:              "Apply to affected eye",
+				Frequency:           "3 times daily",
+				Duration:            "7 days",
+				AdministrationRoute: "Topical",
+				IsPreReferral:       false,
+				Instructions:        "Apply if pus draining from eye",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Gentian Violet",
+				Dosage:              "Apply to mouth ulcers",
+				Frequency:           "Twice daily",
+				Duration:            "Until healed",
+				AdministrationRoute: "Topical",
+				IsPreReferral:       false,
+				Instructions:        "Apply to mouth ulcers",
+			},
+		}
+
+	case "MEASLES_NO_COMPLICATIONS":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Vitamin A",
+				Dosage:              "Therapeutic dose based on age",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give therapeutic dose",
 			},
 		}
 	}

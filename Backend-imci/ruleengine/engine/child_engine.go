@@ -23,6 +23,7 @@ func NewChildRuleEngine() (*ChildRuleEngine, error) {
 	engine.RegisterAssessmentTree(GetChildGeneralDangerSignsTree())
 	engine.RegisterAssessmentTree(GetChildCoughDifficultBreathingTree())
 	engine.RegisterAssessmentTree(GetChildDiarrheaTree()) 
+	engine.RegisterAssessmentTree(GetChildFeverTree())
 	
 	
 	return engine, nil
@@ -94,6 +95,8 @@ func (re *ChildRuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID stri
 			finalClassification = re.classifyChildCoughDifficultBreathing(flow.Answers)
 		case "child_diarrhea":
 			finalClassification = re.classifyChildDiarrhea(flow.Answers)
+		case "child_fever": 
+			finalClassification = re.classifyFever(flow.Answers)
 		default:
 			finalClassification = "NO_DANGER_SIGNS"
 		}
@@ -172,6 +175,8 @@ func (re *ChildRuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID
 		finalClassification = re.classifyChildCoughDifficultBreathing(answers)
 	case "child_diarrhea":
 		finalClassification = re.classifyChildDiarrhea(answers)
+	case "child_fever":
+		finalClassification = re.classifyFever(answers)
 	default:
 		finalClassification = "NO_DANGER_SIGNS"
 		
@@ -281,7 +286,6 @@ func (re *ChildRuleEngine) classifyChildDiarrhea(answers map[string]interface{})
 	skinPinchVerySlow := answers["skin_pinch"]
 	skinPinchSlow := answers["skin_pinch_slow"]
 	
-	// Convert duration
 	duration := 0
 	if dur, ok := diarrheaDuration.(int); ok {
 		duration = dur
@@ -291,14 +295,11 @@ func (re *ChildRuleEngine) classifyChildDiarrhea(answers map[string]interface{})
 		}
 	}
 	
-	// DYSENTERY first (blood in stool)
 	if bloodInStool == "yes" {
 		return "DYSENTERY"
 	}
 	
-	// PERSISTENT DIARRHOEA (14+ days)
 	if duration >= 14 {
-		// Check for any dehydration signs
 		if lethargicUnconscious == "yes" || restlessIrritable == "yes" || sunkenEyes == "yes" || 
 		   drinkingAbility == "no" || drinkingThirsty == "yes" || skinPinchVerySlow == "yes" || skinPinchSlow == "yes" {
 			return "SEVERE_PERSISTENT_DIARRHEA"
@@ -306,7 +307,6 @@ func (re *ChildRuleEngine) classifyChildDiarrhea(answers map[string]interface{})
 		return "PERSISTENT_DIARRHEA"
 	}
 	
-	// SEVERE DEHYDRATION - need 2+ signs from: lethargic, sunken eyes, not able to drink, skin very slow
 	if (lethargicUnconscious == "yes" && sunkenEyes == "yes") ||
 	   (lethargicUnconscious == "yes" && drinkingAbility == "no") ||
 	   (lethargicUnconscious == "yes" && skinPinchVerySlow == "yes") ||
@@ -316,7 +316,6 @@ func (re *ChildRuleEngine) classifyChildDiarrhea(answers map[string]interface{})
 		return "SEVERE_DEHYDRATION"
 	}
 	
-	// SOME DEHYDRATION - need 2+ signs from: restless, sunken eyes, drinking eagerly, skin slow
 	if (restlessIrritable == "yes" && sunkenEyes == "yes") ||
 	   (restlessIrritable == "yes" && drinkingThirsty == "yes") ||
 	   (restlessIrritable == "yes" && skinPinchSlow == "yes") ||
@@ -326,9 +325,52 @@ func (re *ChildRuleEngine) classifyChildDiarrhea(answers map[string]interface{})
 		return "SOME_DEHYDRATION"
 	}
 	
-	// NO DEHYDRATION
 	return "NO_DEHYDRATION"
 }
+
+func (re *ChildRuleEngine) classifyFever(answers map[string]interface{}) string {
+	malariaRisk := answers["malaria_risk"]
+	bloodFilmResult := answers["blood_film_result"]
+	stiffNeck := answers["stiff_neck"]
+	bulgingFontanelle := answers["bulging_fontanelle"]
+	cloudingCornea := answers["clouding_cornea"]
+	mouthUlcersSeverity := answers["mouth_ulcers_severity"]
+	pusDrainingEye := answers["eye_pus"]
+	measlesNow := answers["current_measles"]
+	measlesHistory := answers["measles_history"]
+	generalDangerSign := answers["any_general_danger_sign"]
+
+	if generalDangerSign == "yes" || stiffNeck == "yes" || bulgingFontanelle == "yes" {
+		return "VERY_SEVERE_FEBRILE_DISEASE"
+	}
+
+	if measlesNow == "yes" || measlesHistory == "yes" {
+		if cloudingCornea == "yes" || mouthUlcersSeverity == "deep_extensive" {
+			return "SEVERE_COMPLICATED_MEASLES"
+		}
+		if pusDrainingEye == "yes" || mouthUlcersSeverity == "not_deep_extensive" {
+			return "MEASLES_WITH_EYE_MOUTH_COMPLICATIONS"
+		}
+		return "MEASLES_NO_COMPLICATIONS"
+	}
+
+	if malariaRisk == "high" {
+		if bloodFilmResult == "positive" || bloodFilmResult == "not_available" {
+			return "MALARIA_HIGH_RISK"
+		}
+	} else if malariaRisk == "low" {
+		if bloodFilmResult == "positive" {
+			return "MALARIA_LOW_RISK"
+		}
+	}
+
+	if malariaRisk == "no" || bloodFilmResult == "negative" {
+		return "FEVER_NO_MALARIA"
+	}
+
+	return "FEVER_NO_MALARIA"
+}
+
 
 func (re *ChildRuleEngine) formatAnswer(question *domain.Question, answer interface{}) string {
 	switch question.QuestionType {

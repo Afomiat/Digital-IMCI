@@ -166,7 +166,11 @@ func setupChildTreeRoutes(
 					"title":       "Check for Diarrhea",
 					"description": "Assess child for diarrhea and dehydration",
 			},
-			
+			{
+					"id":          "child_fever", 
+					"title":       "Check for Fever",
+					"description": "Assess child for fever, malaria risk, and measles complications",
+			},
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"trees": trees,
@@ -189,7 +193,9 @@ func setupChildTreeRoutes(
 	childGroup.GET("/tree/diarrhea", func(c *gin.Context) {
 				getChildTreeHandler(c, childUsecase, " ")
 			})
-			
+	childGroup.GET("/tree/fever", func(c *gin.Context) {
+			getChildTreeHandler(c, childUsecase, "child_fever")
+		})
 
 	
 
