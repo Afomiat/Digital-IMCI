@@ -272,9 +272,9 @@ func (uc *ChildRuleEngineUsecase) saveClassificationResults(ctx context.Context,
 
 func (uc *ChildRuleEngineUsecase) getTreatmentPriority(classification string) int {
 	switch classification {
-	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE MALNUTRITION":
+	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE PERSISTENT DIARRHOEA", "SEVERE MALNUTRITION":
 		return 1
-	case "PNEUMONIA", "SOME DEHYDRATION", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION":
+	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION":
 		return 2
 	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK":
 		return 3
@@ -428,9 +428,132 @@ func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classi
 				Instructions:        "Soothe throat and relieve cough with safe remedy",
 			},
 		}
-	case "NO COUGH OR DIFFICULT BREATHING":
-		// No specific treatment plans needed
-		return nil
+	case "SEVERE DEHYDRATION":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "ORS Plan C",
+				Dosage:              "Based on weight",
+				Frequency:           "During transport",
+				Duration:            "Until hospital arrival",
+				AdministrationRoute: "Oral/NG",
+				IsPreReferral:       true,
+				Instructions:        "Give fluid for severe dehydration (Plan C)",
+			},
+		}
+	case "SOME DEHYDRATION":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "ORS Plan B",
+				Dosage:              "Based on weight",
+				Frequency:           "As directed",
+				Duration:            "Until diarrhea stops",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give fluid for some dehydration (Plan B)",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Zinc sulfate",
+				Dosage:              "20mg daily",
+				Frequency:           "Once daily",
+				Duration:            "10-14 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give zinc supplement",
+			},
+		}
+	case "NO DEHYDRATION":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "ORS Plan A",
+				Dosage:              "After each loose stool",
+				Frequency:           "As needed",
+				Duration:            "Until diarrhea stops",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give fluid to treat diarrhea at home (Plan A)",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Zinc sulfate",
+				Dosage:              "20mg daily",
+				Frequency:           "Once daily",
+				Duration:            "10-14 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give zinc supplement",
+			},
+		}
+	case "SEVERE PERSISTENT DIARRHOEA":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Vitamin A",
+				Dosage:              "Based on age",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       true,
+				Instructions:        "Give Vitamin A before referral",
+			},
+		}
+	case "PERSISTENT DIARRHOEA":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Vitamin A",
+				Dosage:              "Therapeutic dose based on age",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give Vitamin A therapeutic dose",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Zinc sulfate",
+				Dosage:              "20mg daily",
+				Frequency:           "Once daily",
+				Duration:            "10 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give zinc for 10 days",
+			},
+		}
+	case "DYSENTERY":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Ciprofloxacin",
+				Dosage:              "Based on weight",
+				Frequency:           "Twice daily",
+				Duration:            "3 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Treat for 3 days with Ciprofloxacin",
+			},
+		}
 	}
 
 	for _, plan := range plans {

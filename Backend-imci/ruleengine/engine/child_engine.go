@@ -3,6 +3,7 @@ package engine
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,7 +22,7 @@ func NewChildRuleEngine() (*ChildRuleEngine, error) {
 	
 	engine.RegisterAssessmentTree(GetChildGeneralDangerSignsTree())
 	engine.RegisterAssessmentTree(GetChildCoughDifficultBreathingTree())
-
+	engine.RegisterAssessmentTree(GetChildDiarrheaTree()) 
 	
 	
 	return engine, nil
@@ -91,6 +92,8 @@ func (re *ChildRuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID stri
 			finalClassification = re.classifyChildGeneralDangerSigns(flow.Answers)
 		case "child_cough_difficult_breathing":
 			finalClassification = re.classifyChildCoughDifficultBreathing(flow.Answers)
+		case "child_diarrhea":
+			finalClassification = re.classifyChildDiarrhea(flow.Answers)
 		default:
 			finalClassification = "NO_DANGER_SIGNS"
 		}
@@ -167,6 +170,8 @@ func (re *ChildRuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID
 		finalClassification = re.classifyChildGeneralDangerSigns(answers)
 	case "child_cough_difficult_breathing":
 		finalClassification = re.classifyChildCoughDifficultBreathing(answers)
+	case "child_diarrhea":
+		finalClassification = re.classifyChildDiarrhea(answers)
 	default:
 		finalClassification = "NO_DANGER_SIGNS"
 		
@@ -263,6 +268,66 @@ func (re *ChildRuleEngine) classifyChildCoughDifficultBreathing(answers map[stri
 	}
 	
 	return "COUGH_OR_COLD"
+}
+
+func (re *ChildRuleEngine) classifyChildDiarrhea(answers map[string]interface{}) string {
+	diarrheaDuration := answers["how_long_diarrhea"]
+	bloodInStool := answers["blood_in_stool"]
+	lethargicUnconscious := answers["lethargic_unconscious"]
+	restlessIrritable := answers["restless_irritable"]
+	sunkenEyes := answers["sunken_eyes"]
+	drinkingAbility := answers["drinking_ability"]
+	drinkingThirsty := answers["drinking_thirsty"]
+	skinPinchVerySlow := answers["skin_pinch"]
+	skinPinchSlow := answers["skin_pinch_slow"]
+	
+	// Convert duration
+	duration := 0
+	if dur, ok := diarrheaDuration.(int); ok {
+		duration = dur
+	} else if durStr, ok := diarrheaDuration.(string); ok {
+		if dur, err := strconv.Atoi(durStr); err == nil {
+			duration = dur
+		}
+	}
+	
+	// DYSENTERY first (blood in stool)
+	if bloodInStool == "yes" {
+		return "DYSENTERY"
+	}
+	
+	// PERSISTENT DIARRHOEA (14+ days)
+	if duration >= 14 {
+		// Check for any dehydration signs
+		if lethargicUnconscious == "yes" || restlessIrritable == "yes" || sunkenEyes == "yes" || 
+		   drinkingAbility == "no" || drinkingThirsty == "yes" || skinPinchVerySlow == "yes" || skinPinchSlow == "yes" {
+			return "SEVERE_PERSISTENT_DIARRHEA"
+		}
+		return "PERSISTENT_DIARRHEA"
+	}
+	
+	// SEVERE DEHYDRATION - need 2+ signs from: lethargic, sunken eyes, not able to drink, skin very slow
+	if (lethargicUnconscious == "yes" && sunkenEyes == "yes") ||
+	   (lethargicUnconscious == "yes" && drinkingAbility == "no") ||
+	   (lethargicUnconscious == "yes" && skinPinchVerySlow == "yes") ||
+	   (sunkenEyes == "yes" && drinkingAbility == "no") ||
+	   (sunkenEyes == "yes" && skinPinchVerySlow == "yes") ||
+	   (drinkingAbility == "no" && skinPinchVerySlow == "yes") {
+		return "SEVERE_DEHYDRATION"
+	}
+	
+	// SOME DEHYDRATION - need 2+ signs from: restless, sunken eyes, drinking eagerly, skin slow
+	if (restlessIrritable == "yes" && sunkenEyes == "yes") ||
+	   (restlessIrritable == "yes" && drinkingThirsty == "yes") ||
+	   (restlessIrritable == "yes" && skinPinchSlow == "yes") ||
+	   (sunkenEyes == "yes" && drinkingThirsty == "yes") ||
+	   (sunkenEyes == "yes" && skinPinchSlow == "yes") ||
+	   (drinkingThirsty == "yes" && skinPinchSlow == "yes") {
+		return "SOME_DEHYDRATION"
+	}
+	
+	// NO DEHYDRATION
+	return "NO_DEHYDRATION"
 }
 
 func (re *ChildRuleEngine) formatAnswer(question *domain.Question, answer interface{}) string {
