@@ -27,6 +27,7 @@ func NewChildRuleEngine() (*ChildRuleEngine, error) {
 	engine.RegisterAssessmentTree(GetChildEarProblemTree())
 	engine.RegisterAssessmentTree(GetChildAnemiaTree())
 	engine.RegisterAssessmentTree(GetAcuteMalnutritionTree())
+	engine.RegisterAssessmentTree(GetFeedingAssessmentTree())
 
 	return engine, nil
 }
@@ -101,6 +102,8 @@ func (re *ChildRuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID stri
 			finalClassification = re.classifyFever(flow.Answers)
 		case "acute_malnutrition":
 			finalClassification = re.classifyAcuteMalnutrition(flow.Answers)
+		case "feeding_assessment":
+			finalClassification = re.classifyFeedingAssessment(flow.Answers)
 		default:
 			finalClassification = "NO_DANGER_SIGNS"
 		}
@@ -187,6 +190,8 @@ func (re *ChildRuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID
 		finalClassification = re.classifyAnemia(answers)
 	case "acute_malnutrition":
 		finalClassification = re.classifyAcuteMalnutrition(answers)
+	case "feeding_assessment":
+		finalClassification = re.classifyFeedingAssessment(answers)
 	default:
 		finalClassification = "NO_DANGER_SIGNS"
 
@@ -498,6 +503,122 @@ func (re *ChildRuleEngine) classifyAcuteMalnutrition(answers map[string]interfac
 	}
 
 	return "NO_ACUTE_MALNUTRITION"
+}
+
+func (re *ChildRuleEngine) classifyFeedingAssessment(answers map[string]interface{}) string {
+	breastfeeding := answers["breastfeeding_check"]
+	breastfeedingFreq := re.parseInt(answers["breastfeeding_frequency"])
+	nightBreastfeeding := answers["night_breastfeeding"]
+	otherFood := answers["other_food_check"]
+	otherFoodTypes := answers["other_food_types"]
+	foodQuantity := answers["food_quantity"]
+	foodFreq := re.parseInt(answers["food_frequency"])
+	feedingMethod := answers["feeding_method"]
+	replacementMilk := answers["replacement_milk_check"]
+	replacementMilkType := answers["replacement_milk_type"]
+	replacementFreq := re.parseInt(answers["replacement_frequency"])
+	_ = answers["replacement_quantity"] 
+	milkPreparation := answers["milk_preparation"]
+	utensilCleaning := answers["utensil_cleaning"]
+	mamChild := answers["mam_specific_check"]
+	servingSize := answers["serving_size"]
+	ownServing := answers["own_serving"]
+	feedingPerson := answers["feeding_person"]
+	feedingChanged := answers["feeding_changes"]
+
+	feedingProblemSigns := []bool{}
+
+	if breastfeeding == "yes" {
+		if breastfeedingFreq < 6 {
+			feedingProblemSigns = append(feedingProblemSigns, true)
+		}
+		if nightBreastfeeding == "no" {
+			feedingProblemSigns = append(feedingProblemSigns, true)
+		}
+	}
+
+	if otherFood == "yes" {
+		otherFoodStr := fmt.Sprintf("%v", otherFoodTypes)
+		quantityStr := fmt.Sprintf("%v", foodQuantity)
+
+		if strings.Contains(strings.ToLower(otherFoodStr), "milk") && (quantityStr == "small" || quantityStr == "varies") {
+			feedingProblemSigns = append(feedingProblemSigns, true)
+		}
+
+		if foodFreq < 3 {
+			feedingProblemSigns = append(feedingProblemSigns, true)
+		}
+
+		if feedingMethod == "bottle" || feedingMethod == "both" {
+			feedingProblemSigns = append(feedingProblemSigns, true)
+		}
+	}
+
+	if replacementMilk == "yes" {
+		milkTypeStr := fmt.Sprintf("%v", replacementMilkType)
+		preparationStr := fmt.Sprintf("%v", milkPreparation)
+		cleaningStr := fmt.Sprintf("%v", utensilCleaning)
+
+		if milkTypeStr == "condensed_milk" || milkTypeStr == "evaporated_milk" {
+			feedingProblemSigns = append(feedingProblemSigns, true)
+		}
+
+		if replacementFreq < 6 {
+			feedingProblemSigns = append(feedingProblemSigns, true)
+		}
+
+		if preparationStr == "diluted_with_water" {
+			feedingProblemSigns = append(feedingProblemSigns, true)
+		}
+
+		if cleaningStr == "not_cleaned_properly" || cleaningStr == "washed_with_water_only" {
+			feedingProblemSigns = append(feedingProblemSigns, true)
+		}
+	}
+
+	if mamChild == "yes" {
+		servingSizeStr := fmt.Sprintf("%v", servingSize)
+		feedingPersonStr := fmt.Sprintf("%v", feedingPerson)
+
+		if servingSizeStr == "small" {
+			feedingProblemSigns = append(feedingProblemSigns, true)
+		}
+
+		if ownServing == "no" {
+			feedingProblemSigns = append(feedingProblemSigns, true)
+		}
+
+		if feedingPersonStr == "child_feeds_self" {
+			feedingProblemSigns = append(feedingProblemSigns, true)
+		}
+	}
+
+	if feedingChanged == "yes" {
+		feedingProblemSigns = append(feedingProblemSigns, true)
+	}
+
+	if len(feedingProblemSigns) > 0 {
+		return "FEEDING_PROBLEM"
+	}
+
+	return "NO_FEEDING_PROBLEM"
+}
+
+func (re *ChildRuleEngine) parseInt(v interface{}) int {
+	switch t := v.(type) {
+	case int:
+		return t
+	case float64:
+		return int(t)
+	case string:
+		i, err := strconv.Atoi(t)
+		if err == nil {
+			return i
+		}
+		return 0
+	default:
+		return 0
+	}
 }
 
 func (re *ChildRuleEngine) parseFloat(v interface{}) float64 {

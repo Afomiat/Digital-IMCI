@@ -280,7 +280,7 @@ func (uc *ChildRuleEngineUsecase) getTreatmentPriority(classification string) in
 		return 1
 	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION", "CHRONIC EAR INFECTION", "MALARIA_HIGH_RISK", "MALARIA_LOW_RISK", "MEASLES WITH EYE OR MOUTH COMPLICATIONS", "ANEMIA", "UNCOMPLICATED SEVERE ACUTE MALNUTRITION", "MODERATE ACUTE MALNUTRITION":
 		return 2
-	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK", "FEVER_NO_MALARIA", "MEASLES_NO_COMPLICATIONS", "NO EAR INFECTION", "NO ANEMIA", "NO ACUTE MALNUTRITION":
+	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK", "FEVER_NO_MALARIA", "MEASLES_NO_COMPLICATIONS", "NO EAR INFECTION", "NO ANEMIA", "NO ACUTE MALNUTRITION", "FEEDING PROBLEM", "NO FEEDING PROBLEM":
 		return 3
 	default:
 		return 3
@@ -931,6 +931,36 @@ func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classi
 		}
 	case "NO ACUTE MALNUTRITION":
 		plans = []*domain.TreatmentPlan{}
+	case "FEEDING PROBLEM":
+		plans = []*domain.TreatmentPlan{
+		{
+			ID:                  uuid.New(),
+			AssessmentID:        classification.AssessmentID,
+			ClassificationID:    classification.ID,
+			DrugName:            "N/A",
+			Dosage:              "N/A",
+			Frequency:           "N/A",
+			Duration:            "N/A",
+			AdministrationRoute: "N/A",
+			IsPreReferral:       false,
+			Instructions:        "Follow-up of feeding problem in 5 days",
+		},
+		}
+	case "NO FEEDING PROBLEM":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "N/A",
+				Dosage:              "N/A",
+				Frequency:           "N/A",
+				Duration:            "N/A",
+				AdministrationRoute: "N/A",
+				IsPreReferral:       false,
+				Instructions:        "Praise and encourage the mother for feeding the infant well",
+			},
+		}
 
 	default:
 		plans = []*domain.TreatmentPlan{}

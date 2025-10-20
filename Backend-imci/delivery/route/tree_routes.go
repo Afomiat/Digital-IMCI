@@ -187,6 +187,11 @@ func setupChildTreeRoutes(
 					"title":       "Assess Acute Malnutrition",
 					"description": "Assess acute malnutrition in children 6 months to 5 years using WFL/H Z-score, MUAC, and oedema",
 				},
+				{
+					"id":          "feeding_assessment",
+					"title":       "Feeding Assessment",
+					"description": "Assess feeding practices for children under 2 years or with Anemia/MAM",
+				},
 			}
 			c.JSON(http.StatusOK, gin.H{
 				"trees":     trees,
@@ -219,6 +224,9 @@ func setupChildTreeRoutes(
 		})
 		childGroup.GET("/tree/acute_malnutrition", func(c *gin.Context) {
 			getChildTreeHandler(c, childUsecase, "acute_malnutrition")
+		})
+		childGroup.GET("/tree/feeding_assessment", func(c *gin.Context) {
+			getChildTreeHandler(c, childUsecase, "feeding_assessment")
 		})
 
 		childGroup.POST("/:id/start-flow", childController.StartAssessmentFlow)
@@ -267,6 +275,7 @@ func setupChildTreeRoutesUnavailable(assessmentGroup *gin.RouterGroup) {
 	childGroup.GET("/tree/fever", unavailableHandler)
 	childGroup.GET("/tree/malnutrition", unavailableHandler)
 	childGroup.GET("/tree/acute_malnutrition", unavailableHandler)
+	childGroup.GET("/tree/feeding_assessment", unavailableHandler)
 	childGroup.GET("/tree/ear_infection", unavailableHandler)
 
 	childGroup.POST("/:id/start-flow", unavailableHandler)
