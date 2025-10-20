@@ -46,13 +46,14 @@ type ClassificationResult struct {
 type Question struct {
 	NodeID         string            `json:"node_id"`
 	Question       string            `json:"question"`
-	QuestionType   string            `json:"question_type"` // yes_no, single_choice, number_input, classification
+	QuestionType   string            `json:"question_type"` 
+	Options       []string            `json:"options,omitempty"` 
 	Required       bool              `json:"required"`
 	Level          int               `json:"level"`
 	ParentNode     string            `json:"parent_node,omitempty"`
 	ShowCondition  string            `json:"show_condition,omitempty"`
-	Instructions   string            `json:"instructions,omitempty"`    // ADD THIS
-	Validation     *Validation       `json:"validation,omitempty"`      // ADD THIS
+	Instructions   string            `json:"instructions,omitempty"`    
+	Validation     *Validation       `json:"validation,omitempty"`      
 	Answers        map[string]Answer `json:"answers"`
 }
 

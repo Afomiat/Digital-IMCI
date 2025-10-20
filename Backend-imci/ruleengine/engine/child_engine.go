@@ -28,6 +28,7 @@ func NewChildRuleEngine() (*ChildRuleEngine, error) {
 	engine.RegisterAssessmentTree(GetChildAnemiaTree())
 	engine.RegisterAssessmentTree(GetAcuteMalnutritionTree())
 	engine.RegisterAssessmentTree(GetFeedingAssessmentTree())
+	engine.RegisterAssessmentTree(GetChildHIVAssessmentTree())
 
 	return engine, nil
 }
@@ -104,6 +105,8 @@ func (re *ChildRuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID stri
 			finalClassification = re.classifyAcuteMalnutrition(flow.Answers)
 		case "feeding_assessment":
 			finalClassification = re.classifyFeedingAssessment(flow.Answers)
+		case "hiv_assessment": // NEW HIV CASE
+			finalClassification = re.classifyHIVAssessment(flow.Answers)
 		default:
 			finalClassification = "NO_DANGER_SIGNS"
 		}
@@ -192,6 +195,8 @@ func (re *ChildRuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID
 		finalClassification = re.classifyAcuteMalnutrition(answers)
 	case "feeding_assessment":
 		finalClassification = re.classifyFeedingAssessment(answers)
+	case "hiv_assessment": 
+		finalClassification = re.classifyHIVAssessment(answers)
 	default:
 		finalClassification = "NO_DANGER_SIGNS"
 
@@ -504,7 +509,6 @@ func (re *ChildRuleEngine) classifyAcuteMalnutrition(answers map[string]interfac
 
 	return "NO_ACUTE_MALNUTRITION"
 }
-
 func (re *ChildRuleEngine) classifyFeedingAssessment(answers map[string]interface{}) string {
 	breastfeeding := answers["breastfeeding_check"]
 	breastfeedingFreq := re.parseInt(answers["breastfeeding_frequency"])
@@ -602,6 +606,74 @@ func (re *ChildRuleEngine) classifyFeedingAssessment(answers map[string]interfac
 	}
 
 	return "NO_FEEDING_PROBLEM"
+}
+
+func (re *ChildRuleEngine) classifyHIVAssessment(answers map[string]interface{}) string {
+	getValue := func(key string) string {
+		if val, exists := answers[key]; exists {
+			return fmt.Sprintf("%v", val)
+		}
+		return ""
+	}
+
+	motherStatus := getValue("mother_hiv_status")
+	childAntibody := getValue("child_antibody_test")
+	childDNAPCR := getValue("child_dna_pcr_test")
+	clinicalSigns := answers["clinical_signs_check"]
+	breastfeeding := getValue("child_breastfeeding")
+	breastfedLast6Weeks := getValue("breastfed_last_6weeks")
+
+	if childDNAPCR == "positive" {
+		return "HIV_INFECTED_DNA_PCR"
+	}
+
+	if childAntibody == "positive" {
+		if childDNAPCR == "unknown" {
+			if clinicalSigns != nil {
+				if signs, ok := clinicalSigns.([]interface{}); ok && len(signs) >= 2 {
+					return "PRESUMPTIVE_SEVERE_HIV"
+				}
+				if signStr, ok := clinicalSigns.(string); ok && signStr != "" {
+					return "PRESUMPTIVE_SEVERE_HIV"
+				}
+			}
+		}
+		return "HIV_INFECTED_ANTIBODY"
+	}
+
+	if motherStatus == "positive" {
+		childTestNegativeOrUnknown := (childAntibody == "negative" || childAntibody == "unknown" || 
+									 childDNAPCR == "negative" || childDNAPCR == "unknown")
+		
+		if childTestNegativeOrUnknown && breastfeeding == "yes" {
+			return "HIV_EXPOSED"
+		}
+		
+		if childTestNegativeOrUnknown && breastfeeding == "no" && breastfedLast6Weeks == "yes" {
+			return "HIV_EXPOSED"
+		}
+	}
+
+	if motherStatus == "unknown" && (childAntibody == "unknown" && childDNAPCR == "unknown") {
+		return "HIV_STATUS_UNKNOWN"
+	}
+
+	if motherStatus == "negative" {
+		return "HIV_INFECTION_UNLIKELY"
+	}
+
+	if motherStatus == "positive" && 
+	   (childDNAPCR == "negative" || (childAntibody == "negative" && childDNAPCR == "unknown")) && 
+	   breastfeeding == "no" && 
+	   breastfedLast6Weeks == "no" {
+		return "HIV_INFECTION_UNLIKELY"
+	}
+
+	if motherStatus == "unknown" && (childAntibody == "negative" || childDNAPCR == "negative") {
+		return "HIV_INFECTION_UNLIKELY"
+	}
+
+	return "HIV_STATUS_UNKNOWN"
 }
 
 func (re *ChildRuleEngine) parseInt(v interface{}) int {

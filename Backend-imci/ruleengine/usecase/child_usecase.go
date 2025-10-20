@@ -276,11 +276,14 @@ func (uc *ChildRuleEngineUsecase) saveClassificationResults(ctx context.Context,
 
 func (uc *ChildRuleEngineUsecase) getTreatmentPriority(classification string) int {
 	switch classification {
-	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE PERSISTENT DIARRHOEA", "SEVERE MALNUTRITION", "VERY SEVERE FEBRILE DISEASE", "SEVERE COMPLICATED MEASLES", "MASTOIDITIS", "SEVERE ANEMIA", "COMPLICATED SEVERE ACUTE MALNUTRITION":
+	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE PERSISTENT DIARRHOEA", "SEVERE MALNUTRITION", "VERY SEVERE FEBRILE DISEASE", "SEVERE COMPLICATED MEASLES", "MASTOIDITIS", "SEVERE ANEMIA", "COMPLICATED SEVERE ACUTE MALNUTRITION", 
+	     "HIV INFECTED", "PRESUMPTIVE SEVERE HIV DISEASE":
 		return 1
-	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION", "CHRONIC EAR INFECTION", "MALARIA_HIGH_RISK", "MALARIA_LOW_RISK", "MEASLES WITH EYE OR MOUTH COMPLICATIONS", "ANEMIA", "UNCOMPLICATED SEVERE ACUTE MALNUTRITION", "MODERATE ACUTE MALNUTRITION":
+	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION", "CHRONIC EAR INFECTION", "MALARIA_HIGH_RISK", "MALARIA_LOW_RISK", "MEASLES WITH EYE OR MOUTH COMPLICATIONS", "ANEMIA", "UNCOMPLICATED SEVERE ACUTE MALNUTRITION", "MODERATE ACUTE MALNUTRITION",
+	     "HIV EXPOSED": 
 		return 2
-	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK", "FEVER_NO_MALARIA", "MEASLES_NO_COMPLICATIONS", "NO EAR INFECTION", "NO ANEMIA", "NO ACUTE MALNUTRITION", "FEEDING PROBLEM", "NO FEEDING PROBLEM":
+	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK", "FEVER_NO_MALARIA", "MEASLES_NO_COMPLICATIONS", "NO EAR INFECTION", "NO ANEMIA", "NO ACUTE MALNUTRITION", "FEEDING PROBLEM", "NO FEEDING PROBLEM",
+	     "HIV STATUS UNKNOWN", "HIV INFECTION UNLIKELY": 
 		return 3
 	default:
 		return 3
@@ -959,6 +962,117 @@ func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classi
 				AdministrationRoute: "N/A",
 				IsPreReferral:       false,
 				Instructions:        "Praise and encourage the mother for feeding the infant well",
+			},
+		}
+	case "HIV INFECTED":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Cotrimoxazole prophylaxis",
+				Dosage:              "Based on weight and age",
+				Frequency:           "Once daily",
+				Duration:            "Until immune recovery",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give daily cotrimoxazole prophylaxis",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "ART (Antiretroviral Therapy)",
+				Dosage:              "Based on weight and regimen",
+				Frequency:           "As prescribed",
+				Duration:            "Lifelong",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Initiate ART immediately and continue lifelong",
+			},
+		}
+	case "PRESUMPTIVE SEVERE HIV DISEASE":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Cotrimoxazole prophylaxis",
+				Dosage:              "Based on weight and age",
+				Frequency:           "Once daily",
+				Duration:            "Until confirmatory testing",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give daily cotrimoxazole while awaiting confirmatory tests",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Empirical ART",
+				Dosage:              "Based on weight and regimen",
+				Frequency:           "As prescribed",
+				Duration:            "Until confirmatory testing",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Initiate empirical ART while awaiting DNA PCR results",
+			},
+		}
+	case "HIV EXPOSED":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Cotrimoxazole prophylaxis",
+				Dosage:              "Based on weight and age",
+				Frequency:           "Once daily",
+				Duration:            "Until HIV infection excluded",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give daily cotrimoxazole until HIV infection is excluded",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "HIV testing follow-up",
+				Dosage:              "N/A",
+				Frequency:           "As scheduled",
+				Duration:            "Until final diagnosis",
+				AdministrationRoute: "N/A",
+				IsPreReferral:       false,
+				Instructions:        "Schedule repeat HIV testing 6 weeks after breastfeeding cessation",
+			},
+		}
+	case "HIV STATUS UNKNOWN":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "HIV testing",
+				Dosage:              "N/A",
+				Frequency:           "Immediate",
+				Duration:            "Single test",
+				AdministrationRoute: "N/A",
+				IsPreReferral:       false,
+				Instructions:        "Arrange for immediate HIV testing for mother and child",
+			},
+		}
+	case "HIV INFECTION UNLIKELY":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "HIV prevention counseling",
+				Dosage:              "N/A",
+				Frequency:           "Single session",
+				Duration:            "N/A",
+				AdministrationRoute: "N/A",
+				IsPreReferral:       false,
+				Instructions:        "Provide HIV prevention counseling",
 			},
 		}
 

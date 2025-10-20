@@ -192,6 +192,11 @@ func setupChildTreeRoutes(
 					"title":       "Feeding Assessment",
 					"description": "Assess feeding practices for children under 2 years or with Anemia/MAM",
 				},
+				{
+					"id":          "hiv_assessment",
+					"title":       "HIV Infection Classification",
+					"description": "Assess HIV status of mother and child, test results, and classify HIV infection",
+				},
 			}
 			c.JSON(http.StatusOK, gin.H{
 				"trees":     trees,
@@ -227,6 +232,9 @@ func setupChildTreeRoutes(
 		})
 		childGroup.GET("/tree/feeding_assessment", func(c *gin.Context) {
 			getChildTreeHandler(c, childUsecase, "feeding_assessment")
+		})
+		childGroup.GET("/tree/hiv_assessment", func(c *gin.Context) {
+			getChildTreeHandler(c, childUsecase, "hiv_assessment")
 		})
 
 		childGroup.POST("/:id/start-flow", childController.StartAssessmentFlow)
