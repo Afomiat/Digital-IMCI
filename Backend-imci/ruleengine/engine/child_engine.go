@@ -458,12 +458,12 @@ func (re *ChildRuleEngine) classifyAnemia(answers map[string]interface{}) string
 
 func (re *ChildRuleEngine) classifyAcuteMalnutrition(answers map[string]interface{}) string {
 
-	oedema := answers["pitting_edema"]                 
-	wfl := re.parseFloat(answers["wfl_z_score"])       
-	muac := re.parseFloat(answers["muac_measurement"]) 
+	oedema := answers["pitting_edema"]
+	wfl := re.parseFloat(answers["wfl_z_score"])
+	muac := re.parseFloat(answers["muac_measurement"])
 	severeWastingWithEdema := answers["severe_wasting_with_edema_check"]
-	complicationsAny := answers["medical_complications_multi"] 
-	appetite := answers["appetite_test"]                      
+	complicationsAny := answers["medical_complications_multi"]
+	appetite := answers["appetite_test"]
 
 	oedemaAny := (oedema == "plus" || oedema == "plus_plus" || oedema == "plus_plus_plus")
 	oedemaSevere := (oedema == "plus_plus_plus")
