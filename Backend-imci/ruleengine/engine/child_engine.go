@@ -19,15 +19,15 @@ func NewChildRuleEngine() (*ChildRuleEngine, error) {
 	engine := &ChildRuleEngine{
 		trees: make(map[string]*domain.AssessmentTree),
 	}
-	
+
 	engine.RegisterAssessmentTree(GetChildGeneralDangerSignsTree())
 	engine.RegisterAssessmentTree(GetChildCoughDifficultBreathingTree())
-	engine.RegisterAssessmentTree(GetChildDiarrheaTree()) 
+	engine.RegisterAssessmentTree(GetChildDiarrheaTree())
 	engine.RegisterAssessmentTree(GetChildFeverTree())
 	engine.RegisterAssessmentTree(GetChildEarProblemTree())
 	engine.RegisterAssessmentTree(GetChildAnemiaTree())
-	
-	
+	engine.RegisterAssessmentTree(GetAcuteMalnutritionTree())
+
 	return engine, nil
 }
 
@@ -86,10 +86,10 @@ func (re *ChildRuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID stri
 	flow.UpdatedAt = time.Now()
 
 	answerConfig := question.Answers[answerStr]
-	
+
 	if answerConfig.Classification == "AUTO_CLASSIFY" {
 		var finalClassification string
-		
+
 		switch flow.TreeID {
 		case "child_general_danger_signs":
 			finalClassification = re.classifyChildGeneralDangerSigns(flow.Answers)
@@ -97,12 +97,14 @@ func (re *ChildRuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID stri
 			finalClassification = re.classifyChildCoughDifficultBreathing(flow.Answers)
 		case "child_diarrhea":
 			finalClassification = re.classifyChildDiarrhea(flow.Answers)
-		case "child_fever": 
+		case "child_fever":
 			finalClassification = re.classifyFever(flow.Answers)
+		case "acute_malnutrition":
+			finalClassification = re.classifyAcuteMalnutrition(flow.Answers)
 		default:
 			finalClassification = "NO_DANGER_SIGNS"
 		}
-		
+
 		outcome, exists := tree.Outcomes[finalClassification]
 		if exists {
 			flow.Classification = &domain.ClassificationResult{
@@ -121,7 +123,7 @@ func (re *ChildRuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID stri
 			return flow, nil, nil
 		}
 	}
-	
+
 	if answerConfig.Classification != "" && answerConfig.Classification != "AUTO_CLASSIFY" {
 		outcome, exists := tree.Outcomes[answerConfig.Classification]
 		if exists {
@@ -169,7 +171,7 @@ func (re *ChildRuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID
 	}
 
 	var finalClassification string
-	
+
 	switch treeID {
 	case "child_general_danger_signs":
 		finalClassification = re.classifyChildGeneralDangerSigns(answers)
@@ -179,13 +181,15 @@ func (re *ChildRuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID
 		finalClassification = re.classifyChildDiarrhea(answers)
 	case "child_fever":
 		finalClassification = re.classifyFever(answers)
-	case "child_ear_problem": 
+	case "child_ear_problem":
 		finalClassification = re.classifyEarProblem(answers)
 	case "child_anemia_check":
 		finalClassification = re.classifyAnemia(answers)
+	case "acute_malnutrition":
+		finalClassification = re.classifyAcuteMalnutrition(answers)
 	default:
 		finalClassification = "NO_DANGER_SIGNS"
-		
+
 	}
 
 	outcome, exists := tree.Outcomes[finalClassification]
@@ -237,11 +241,11 @@ func (re *ChildRuleEngine) classifyChildGeneralDangerSigns(answers map[string]in
 	lethargicUnconscious := answers["lethargic_unconscious"]
 	convulsingNow := answers["convulsing_now"]
 
-	if unableToDrink == "no" || 
-	   vomitsEverything == "yes" ||
-	   convulsionsHistory == "yes" ||
-	   lethargicUnconscious == "yes" ||
-	   convulsingNow == "yes" {
+	if unableToDrink == "no" ||
+		vomitsEverything == "yes" ||
+		convulsionsHistory == "yes" ||
+		lethargicUnconscious == "yes" ||
+		convulsingNow == "yes" {
 		return "VERY_SEVERE_DISEASE"
 	}
 
@@ -252,32 +256,32 @@ func (re *ChildRuleEngine) classifyChildCoughDifficultBreathing(answers map[stri
 	generalDangerSigns := answers["general_danger_signs"]
 	stridor := answers["stridor"]
 	oxygenSaturation := answers["oxygen_saturation"]
-	
+
 	if generalDangerSigns == "yes" || stridor == "yes" || oxygenSaturation == "yes" {
 		return "SEVERE_PNEUMONIA_OR_VERY_SEVERE_DISEASE"
 	}
-	
+
 	chestIndrawing := answers["chest_indrawing"]
 	hivExposed := answers["hiv_exposed"]
-	
+
 	if chestIndrawing == "yes" && hivExposed == "yes" {
 		return "CHEST_INDRAWING_HIV_EXPOSED"
 	}
-	
+
 	fastBreathing := answers["fast_breathing"]
 	wheezing := answers["wheezing"]
-	
+
 	if fastBreathing == "yes" || chestIndrawing == "yes" {
 		if wheezing == "yes" {
 			return "PNEUMONIA_WITH_WHEEZING"
 		}
 		return "PNEUMONIA"
 	}
-	
+
 	if wheezing == "yes" {
 		return "COUGH_OR_COLD_WITH_WHEEZING"
 	}
-	
+
 	return "COUGH_OR_COLD"
 }
 
@@ -291,7 +295,7 @@ func (re *ChildRuleEngine) classifyChildDiarrhea(answers map[string]interface{})
 	drinkingThirsty := answers["drinking_thirsty"]
 	skinPinchVerySlow := answers["skin_pinch"]
 	skinPinchSlow := answers["skin_pinch_slow"]
-	
+
 	duration := 0
 	if dur, ok := diarrheaDuration.(int); ok {
 		duration = dur
@@ -300,37 +304,37 @@ func (re *ChildRuleEngine) classifyChildDiarrhea(answers map[string]interface{})
 			duration = dur
 		}
 	}
-	
+
 	if bloodInStool == "yes" {
 		return "DYSENTERY"
 	}
-	
+
 	if duration >= 14 {
-		if lethargicUnconscious == "yes" || restlessIrritable == "yes" || sunkenEyes == "yes" || 
-		   drinkingAbility == "no" || drinkingThirsty == "yes" || skinPinchVerySlow == "yes" || skinPinchSlow == "yes" {
+		if lethargicUnconscious == "yes" || restlessIrritable == "yes" || sunkenEyes == "yes" ||
+			drinkingAbility == "no" || drinkingThirsty == "yes" || skinPinchVerySlow == "yes" || skinPinchSlow == "yes" {
 			return "SEVERE_PERSISTENT_DIARRHEA"
 		}
 		return "PERSISTENT_DIARRHEA"
 	}
-	
+
 	if (lethargicUnconscious == "yes" && sunkenEyes == "yes") ||
-	   (lethargicUnconscious == "yes" && drinkingAbility == "no") ||
-	   (lethargicUnconscious == "yes" && skinPinchVerySlow == "yes") ||
-	   (sunkenEyes == "yes" && drinkingAbility == "no") ||
-	   (sunkenEyes == "yes" && skinPinchVerySlow == "yes") ||
-	   (drinkingAbility == "no" && skinPinchVerySlow == "yes") {
+		(lethargicUnconscious == "yes" && drinkingAbility == "no") ||
+		(lethargicUnconscious == "yes" && skinPinchVerySlow == "yes") ||
+		(sunkenEyes == "yes" && drinkingAbility == "no") ||
+		(sunkenEyes == "yes" && skinPinchVerySlow == "yes") ||
+		(drinkingAbility == "no" && skinPinchVerySlow == "yes") {
 		return "SEVERE_DEHYDRATION"
 	}
-	
+
 	if (restlessIrritable == "yes" && sunkenEyes == "yes") ||
-	   (restlessIrritable == "yes" && drinkingThirsty == "yes") ||
-	   (restlessIrritable == "yes" && skinPinchSlow == "yes") ||
-	   (sunkenEyes == "yes" && drinkingThirsty == "yes") ||
-	   (sunkenEyes == "yes" && skinPinchSlow == "yes") ||
-	   (drinkingThirsty == "yes" && skinPinchSlow == "yes") {
+		(restlessIrritable == "yes" && drinkingThirsty == "yes") ||
+		(restlessIrritable == "yes" && skinPinchSlow == "yes") ||
+		(sunkenEyes == "yes" && drinkingThirsty == "yes") ||
+		(sunkenEyes == "yes" && skinPinchSlow == "yes") ||
+		(drinkingThirsty == "yes" && skinPinchSlow == "yes") {
 		return "SOME_DEHYDRATION"
 	}
-	
+
 	return "NO_DEHYDRATION"
 }
 
@@ -403,7 +407,7 @@ func (re *ChildRuleEngine) classifyEarProblem(answers map[string]interface{}) st
 		return "NO_EAR_INFECTION"
 	}
 
-	return "NO_EAR_INFECTION" 
+	return "NO_EAR_INFECTION"
 }
 
 func (re *ChildRuleEngine) classifyAnemia(answers map[string]interface{}) string {
@@ -449,7 +453,68 @@ func (re *ChildRuleEngine) classifyAnemia(answers map[string]interface{}) string
 		return "NO_ANEMIA"
 	}
 
-	return "NO_ANEMIA" 
+	return "NO_ANEMIA"
+}
+
+func (re *ChildRuleEngine) classifyAcuteMalnutrition(answers map[string]interface{}) string {
+
+	oedema := answers["pitting_edema"]                 
+	wfl := re.parseFloat(answers["wfl_z_score"])       
+	muac := re.parseFloat(answers["muac_measurement"]) 
+	severeWastingWithEdema := answers["severe_wasting_with_edema_check"]
+	complicationsAny := answers["medical_complications_multi"] 
+	appetite := answers["appetite_test"]                      
+
+	oedemaAny := (oedema == "plus" || oedema == "plus_plus" || oedema == "plus_plus_plus")
+	oedemaSevere := (oedema == "plus_plus_plus")
+	severeByWfl := wfl < -3.0
+	severeByMuac := muac < 11.5
+	moderateByWfl := (wfl >= -3.0 && wfl < -2.0)
+	moderateByMuac := (muac >= 11.5 && muac < 12.5)
+
+	if oedemaSevere {
+		return "COMPLICATED_SEVERE_ACUTE_MALNUTRITION"
+	}
+
+	if severeWastingWithEdema == "yes" {
+		return "COMPLICATED_SEVERE_ACUTE_MALNUTRITION"
+	}
+
+	if complicationsAny == "any_present" {
+		return "COMPLICATED_SEVERE_ACUTE_MALNUTRITION"
+	}
+
+	if oedemaAny || severeByWfl || severeByMuac {
+		if appetite == "failed" {
+			return "COMPLICATED_SEVERE_ACUTE_MALNUTRITION"
+		}
+		if appetite == "passed" {
+			return "UNCOMPLICATED_SEVERE_ACUTE_MALNUTRITION"
+		}
+	}
+
+	if (moderateByWfl || moderateByMuac) && !oedemaAny {
+		return "MODERATE_ACUTE_MALNUTRITION"
+	}
+
+	return "NO_ACUTE_MALNUTRITION"
+}
+
+func (re *ChildRuleEngine) parseFloat(v interface{}) float64 {
+	switch t := v.(type) {
+	case float64:
+		return t
+	case int:
+		return float64(t)
+	case string:
+		f, err := strconv.ParseFloat(t, 64)
+		if err == nil {
+			return f
+		}
+		return 0
+	default:
+		return 0
+	}
 }
 
 func (re *ChildRuleEngine) formatAnswer(question *domain.Question, answer interface{}) string {

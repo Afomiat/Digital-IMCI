@@ -14,14 +14,14 @@ import (
 )
 
 type ChildRuleEngineUsecase struct {
-	ruleEngine                      *engine.ChildRuleEngine
-	assessmentRepo                  domain.AssessmentRepository
-	medicalProfessionalAnswerRepo   domain.MedicalProfessionalAnswerRepository
-	clinicalFindingsRepo            domain.ClinicalFindingsRepository
-	classificationRepo              domain.ClassificationRepository
-	treatmentPlanRepo               domain.TreatmentPlanRepository
-	counselingRepo                  domain.CounselingRepository
-	contextTimeout                  time.Duration
+	ruleEngine                    *engine.ChildRuleEngine
+	assessmentRepo                domain.AssessmentRepository
+	medicalProfessionalAnswerRepo domain.MedicalProfessionalAnswerRepository
+	clinicalFindingsRepo          domain.ClinicalFindingsRepository
+	classificationRepo            domain.ClassificationRepository
+	treatmentPlanRepo             domain.TreatmentPlanRepository
+	counselingRepo                domain.CounselingRepository
+	contextTimeout                time.Duration
 }
 
 func NewChildRuleEngineUsecase(
@@ -214,22 +214,26 @@ func (uc *ChildRuleEngineUsecase) GetAssessmentTree(treeID string) (*ruleengined
 	return uc.ruleEngine.GetAssessmentTree(treeID)
 }
 
+func (uc *ChildRuleEngineUsecase) GetAvailableTrees() []string {
+	return uc.ruleEngine.GetAvailableTrees()
+}
+
 func (uc *ChildRuleEngineUsecase) saveClassificationResults(ctx context.Context, assessment *domain.Assessment, classification *ruleenginedomain.ClassificationResult) error {
 	if classification == nil {
 		return nil
 	}
 
 	class := &domain.Classification{
-		ID:                    uuid.New(),
-		AssessmentID:          assessment.ID,
-		Disease:               classification.Classification,
-		Color:                 classification.Color,
-		Details:               classification.TreatmentPlan,
-		RuleVersion:           "imnci_2021_v1",
-		IsCriticalIllness:     classification.Emergency,
+		ID:                     uuid.New(),
+		AssessmentID:           assessment.ID,
+		Disease:                classification.Classification,
+		Color:                  classification.Color,
+		Details:                classification.TreatmentPlan,
+		RuleVersion:            "imnci_2021_v1",
+		IsCriticalIllness:      classification.Emergency,
 		RequiresUrgentReferral: classification.Emergency,
-		TreatmentPriority:     uc.getTreatmentPriority(classification.Classification),
-		CreatedAt:             time.Now(),
+		TreatmentPriority:      uc.getTreatmentPriority(classification.Classification),
+		CreatedAt:              time.Now(),
 	}
 
 	if err := uc.classificationRepo.Create(ctx, class); err != nil {
@@ -272,11 +276,11 @@ func (uc *ChildRuleEngineUsecase) saveClassificationResults(ctx context.Context,
 
 func (uc *ChildRuleEngineUsecase) getTreatmentPriority(classification string) int {
 	switch classification {
-	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE PERSISTENT DIARRHOEA", "SEVERE MALNUTRITION", "VERY SEVERE FEBRILE DISEASE", "SEVERE COMPLICATED MEASLES", "MASTOIDITIS", "SEVERE ANEMIA": 
+	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE PERSISTENT DIARRHOEA", "SEVERE MALNUTRITION", "VERY SEVERE FEBRILE DISEASE", "SEVERE COMPLICATED MEASLES", "MASTOIDITIS", "SEVERE ANEMIA", "COMPLICATED SEVERE ACUTE MALNUTRITION":
 		return 1
-	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION", "CHRONIC EAR INFECTION", "MALARIA_HIGH_RISK", "MALARIA_LOW_RISK", "MEASLES WITH EYE OR MOUTH COMPLICATIONS", "ANEMIA": 
+	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION", "CHRONIC EAR INFECTION", "MALARIA_HIGH_RISK", "MALARIA_LOW_RISK", "MEASLES WITH EYE OR MOUTH COMPLICATIONS", "ANEMIA", "UNCOMPLICATED SEVERE ACUTE MALNUTRITION", "MODERATE ACUTE MALNUTRITION":
 		return 2
-	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK", "FEVER_NO_MALARIA", "MEASLES_NO_COMPLICATIONS", "NO EAR INFECTION", "NO ANEMIA": 
+	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK", "FEVER_NO_MALARIA", "MEASLES_NO_COMPLICATIONS", "NO EAR INFECTION", "NO ANEMIA", "NO ACUTE MALNUTRITION":
 		return 3
 	default:
 		return 3
@@ -284,7 +288,7 @@ func (uc *ChildRuleEngineUsecase) getTreatmentPriority(classification string) in
 }
 func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classification *domain.Classification, result *ruleenginedomain.ClassificationResult) error {
 	var plans []*domain.TreatmentPlan
-	
+
 	switch result.Classification {
 	case "VERY SEVERE DISEASE":
 		plans = []*domain.TreatmentPlan{
@@ -810,7 +814,7 @@ func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classi
 		}
 	case "NO EAR INFECTION":
 		plans = []*domain.TreatmentPlan{}
-		case "SEVERE ANEMIA":
+	case "SEVERE ANEMIA":
 		plans = []*domain.TreatmentPlan{
 			{
 				ID:                  uuid.New(),
@@ -853,10 +857,81 @@ func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classi
 			},
 		}
 	case "NO ANEMIA":
-	
+
 		plans = []*domain.TreatmentPlan{}
-		
-	
+
+	case "COMPLICATED SEVERE ACUTE MALNUTRITION":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Ampicillin and Gentamicin",
+				Dosage:              "Based on weight",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "IM",
+				IsPreReferral:       true,
+				Instructions:        "Give 1st dose of Ampicillin and Gentamicin IM before referral",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Sugar solution",
+				Dosage:              "10ml/kg",
+				Frequency:           "Stat",
+				Duration:            "Single dose",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       true,
+				Instructions:        "Treat the child to prevent low blood sugar",
+			},
+		}
+	case "UNCOMPLICATED SEVERE ACUTE MALNUTRITION":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "RUTF (Ready-to-Use Therapeutic Food)",
+				Dosage:              "Based on weight",
+				Frequency:           "Multiple times daily",
+				Duration:            "7 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give RUTF for 7 days as per OTP protocol",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Amoxicillin",
+				Dosage:              "Based on weight",
+				Frequency:           "Twice daily",
+				Duration:            "5 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give oral Amoxicillin for 5 days",
+			},
+		}
+	case "MODERATE ACUTE MALNUTRITION":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Supplementary feeding",
+				Dosage:              "As per TSFP protocol",
+				Frequency:           "Daily",
+				Duration:            "30 days",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Follow TSFP care protocol for nutritional support",
+			},
+		}
+	case "NO ACUTE MALNUTRITION":
+		plans = []*domain.TreatmentPlan{}
+
 	default:
 		plans = []*domain.TreatmentPlan{}
 	}
