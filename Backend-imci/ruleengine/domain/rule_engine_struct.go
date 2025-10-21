@@ -43,11 +43,17 @@ type ClassificationResult struct {
 	MotherAdvice   string   `json:"mother_advice"`
 }
 
+
+type Option struct {
+	Value       string `json:"value"`
+	DisplayText string `json:"display_text"`
+}
+
 type Question struct {
 	NodeID         string            `json:"node_id"`
 	Question       string            `json:"question"`
 	QuestionType   string            `json:"question_type"` 
-	Options       []string            `json:"options,omitempty"` 
+	Options       []Option            `json:"options,omitempty"` 
 	Required       bool              `json:"required"`
 	Level          int               `json:"level"`
 	ParentNode     string            `json:"parent_node,omitempty"`

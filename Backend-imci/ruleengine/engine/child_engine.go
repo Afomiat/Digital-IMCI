@@ -29,6 +29,7 @@ func NewChildRuleEngine() (*ChildRuleEngine, error) {
 	engine.RegisterAssessmentTree(GetAcuteMalnutritionTree())
 	engine.RegisterAssessmentTree(GetFeedingAssessmentTree())
 	engine.RegisterAssessmentTree(GetChildHIVAssessmentTree())
+	engine.RegisterAssessmentTree(GetChildTBAssessmentTree())
 
 	return engine, nil
 }
@@ -105,8 +106,10 @@ func (re *ChildRuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID stri
 			finalClassification = re.classifyAcuteMalnutrition(flow.Answers)
 		case "feeding_assessment":
 			finalClassification = re.classifyFeedingAssessment(flow.Answers)
-		case "hiv_assessment": // NEW HIV CASE
+		case "hiv_assessment":
 			finalClassification = re.classifyHIVAssessment(flow.Answers)
+		case "tb_assessment":
+			finalClassification = re.classifyTBAssessment(flow.Answers)
 		default:
 			finalClassification = "NO_DANGER_SIGNS"
 		}
@@ -195,8 +198,10 @@ func (re *ChildRuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID
 		finalClassification = re.classifyAcuteMalnutrition(answers)
 	case "feeding_assessment":
 		finalClassification = re.classifyFeedingAssessment(answers)
-	case "hiv_assessment": 
+	case "hiv_assessment":
 		finalClassification = re.classifyHIVAssessment(answers)
+	case "tb_assessment":
+		finalClassification = re.classifyTBAssessment(answers)
 	default:
 		finalClassification = "NO_DANGER_SIGNS"
 
@@ -521,7 +526,7 @@ func (re *ChildRuleEngine) classifyFeedingAssessment(answers map[string]interfac
 	replacementMilk := answers["replacement_milk_check"]
 	replacementMilkType := answers["replacement_milk_type"]
 	replacementFreq := re.parseInt(answers["replacement_frequency"])
-	_ = answers["replacement_quantity"] 
+	_ = answers["replacement_quantity"]
 	milkPreparation := answers["milk_preparation"]
 	utensilCleaning := answers["utensil_cleaning"]
 	mamChild := answers["mam_specific_check"]
@@ -642,13 +647,13 @@ func (re *ChildRuleEngine) classifyHIVAssessment(answers map[string]interface{})
 	}
 
 	if motherStatus == "positive" {
-		childTestNegativeOrUnknown := (childAntibody == "negative" || childAntibody == "unknown" || 
-									 childDNAPCR == "negative" || childDNAPCR == "unknown")
-		
+		childTestNegativeOrUnknown := (childAntibody == "negative" || childAntibody == "unknown" ||
+			childDNAPCR == "negative" || childDNAPCR == "unknown")
+
 		if childTestNegativeOrUnknown && breastfeeding == "yes" {
 			return "HIV_EXPOSED"
 		}
-		
+
 		if childTestNegativeOrUnknown && breastfeeding == "no" && breastfedLast6Weeks == "yes" {
 			return "HIV_EXPOSED"
 		}
@@ -662,10 +667,10 @@ func (re *ChildRuleEngine) classifyHIVAssessment(answers map[string]interface{})
 		return "HIV_INFECTION_UNLIKELY"
 	}
 
-	if motherStatus == "positive" && 
-	   (childDNAPCR == "negative" || (childAntibody == "negative" && childDNAPCR == "unknown")) && 
-	   breastfeeding == "no" && 
-	   breastfedLast6Weeks == "no" {
+	if motherStatus == "positive" &&
+		(childDNAPCR == "negative" || (childAntibody == "negative" && childDNAPCR == "unknown")) &&
+		breastfeeding == "no" &&
+		breastfedLast6Weeks == "no" {
 		return "HIV_INFECTION_UNLIKELY"
 	}
 
@@ -676,6 +681,52 @@ func (re *ChildRuleEngine) classifyHIVAssessment(answers map[string]interface{})
 	return "HIV_STATUS_UNKNOWN"
 }
 
+func (re *ChildRuleEngine) classifyTBAssessment(answers map[string]interface{}) string {
+	getValue := func(key string) string {
+		if val, exists := answers[key]; exists {
+			return fmt.Sprintf("%v", val)
+		}
+		return ""
+	}
+
+	hasActualSymptomsOrSigns := func(arr interface{}) bool {
+		if arr == nil {
+			return false 
+		}
+
+		if symptoms, ok := arr.([]interface{}); ok {
+			if len(symptoms) == 0 {
+				return false 
+			}
+			for _, symptom := range symptoms {
+				if fmt.Sprintf("%v", symptom) != "none" {
+					return true 
+				}
+			}
+			return false
+		}
+
+		if symptomStr, ok := arr.(string); ok {
+			return symptomStr != "" && symptomStr != "none" 
+		}
+
+		return false 
+	}
+
+	tbSymptoms := answers["tb_symptoms_check"]
+	hasSymptoms := hasActualSymptomsOrSigns(tbSymptoms)
+
+	contactHistory := getValue("tb_contact_history")
+
+	tbSigns := answers["tb_signs_check"]
+	hasSigns := hasActualSymptomsOrSigns(tbSigns)
+
+	if contactHistory == "yes" && !hasSymptoms && !hasSigns {
+		return "TB_INFECTION"
+	}
+
+	return "NO_TB_INFECTION"
+}
 func (re *ChildRuleEngine) parseInt(v interface{}) int {
 	switch t := v.(type) {
 	case int:

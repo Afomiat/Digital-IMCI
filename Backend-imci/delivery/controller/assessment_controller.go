@@ -41,7 +41,7 @@ func (ac *AssessmentController) CreateAssessment(c *gin.Context) {
 		return
 	}
 
-	mpID := medicalProfessionalID.(uuid.UUID)// ??
+	mpID := medicalProfessionalID.(uuid.UUID)
 
 	assessment, err := ac.AssessmentUsecase.CreateAssessment(c.Request.Context(), &request, mpID)
 	if err != nil {
@@ -82,7 +82,6 @@ func (ac *AssessmentController) GetAssessment(c *gin.Context) {
 		return
 	}
 
-	// Get medical professional ID from auth middleware
 	medicalProfessionalID, exists := c.Get("medical_professional_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
@@ -118,11 +117,9 @@ func (ac *AssessmentController) GetAssessment(c *gin.Context) {
 	})
 }
 
-// delivery/controller/assessment_controller.go
-// Add these methods to your existing controller:
+
 
 func (ac *AssessmentController) ListAssessments(c *gin.Context) {
-	// Get medical professional ID from auth middleware
 	medicalProfessionalID, exists := c.Get("medical_professional_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
@@ -135,7 +132,6 @@ func (ac *AssessmentController) ListAssessments(c *gin.Context) {
 
 	mpID := medicalProfessionalID.(uuid.UUID)
 
-	// Optional patient ID filter
 	patientIDStr := c.Query("patient_id")
 	var patientID uuid.UUID
 	var err error

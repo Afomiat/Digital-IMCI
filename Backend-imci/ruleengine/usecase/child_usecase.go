@@ -277,13 +277,14 @@ func (uc *ChildRuleEngineUsecase) saveClassificationResults(ctx context.Context,
 func (uc *ChildRuleEngineUsecase) getTreatmentPriority(classification string) int {
 	switch classification {
 	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE PERSISTENT DIARRHOEA", "SEVERE MALNUTRITION", "VERY SEVERE FEBRILE DISEASE", "SEVERE COMPLICATED MEASLES", "MASTOIDITIS", "SEVERE ANEMIA", "COMPLICATED SEVERE ACUTE MALNUTRITION", 
-	     "HIV INFECTED", "PRESUMPTIVE SEVERE HIV DISEASE":
+	     "HIV INFECTED", "PRESUMPTIVE SEVERE HIV DISEASE",
+	     "TB DISEASE": 
 		return 1
 	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION", "CHRONIC EAR INFECTION", "MALARIA_HIGH_RISK", "MALARIA_LOW_RISK", "MEASLES WITH EYE OR MOUTH COMPLICATIONS", "ANEMIA", "UNCOMPLICATED SEVERE ACUTE MALNUTRITION", "MODERATE ACUTE MALNUTRITION",
-	     "HIV EXPOSED": 
+	     "HIV EXPOSED", "TB INFECTION": 
 		return 2
 	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK", "FEVER_NO_MALARIA", "MEASLES_NO_COMPLICATIONS", "NO EAR INFECTION", "NO ANEMIA", "NO ACUTE MALNUTRITION", "FEEDING PROBLEM", "NO FEEDING PROBLEM",
-	     "HIV STATUS UNKNOWN", "HIV INFECTION UNLIKELY": 
+	     "HIV STATUS UNKNOWN", "HIV INFECTION UNLIKELY", "NO TB INFECTION": 
 		return 3
 	default:
 		return 3
@@ -1075,6 +1076,64 @@ func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classi
 				Instructions:        "Provide HIV prevention counseling",
 			},
 		}
+		case "TB DISEASE":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "TB Treatment Regimen",
+				Dosage:              "Based on weight and regimen",
+				Frequency:           "As per national guidelines",
+				Duration:            "6-12 months",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Start immediate TB treatment as per national guidelines",
+			},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Contact Tracing",
+				Dosage:              "N/A",
+				Frequency:           "Immediate",
+				Duration:            "N/A",
+				AdministrationRoute: "N/A",
+				IsPreReferral:       false,
+				Instructions:        "Advise mother to bring all contacts to TB clinic for screening",
+			},
+		}
+	case "TB INFECTION":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "TB Prevention Treatment",
+				Dosage:              "Based on weight and regimen",
+				Frequency:           "As per national guidelines",
+				Duration:            "3-6 months",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Start TB prevention treatment to prevent active disease",
+			},
+		}
+	case "NO TB INFECTION":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Health Education",
+				Dosage:              "N/A",
+				Frequency:           "Single session",
+				Duration:            "N/A",
+				AdministrationRoute: "N/A",
+				IsPreReferral:       false,
+				Instructions:        "Provide TB prevention education and advise to return if symptoms develop",
+			},
+		}
+
 
 	default:
 		plans = []*domain.TreatmentPlan{}

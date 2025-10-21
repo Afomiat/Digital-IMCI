@@ -28,7 +28,6 @@ func NewYoungInfantRuleEngine() (*YoungInfantRuleEngine, error) {
 		trees: make(map[string]*domain.AssessmentTree),
 	}
 	
-	// Register only young infant trees (0-2 months)
 	engine.RegisterAssessmentTree(GetBirthAsphyxiaTree())
 	engine.RegisterAssessmentTree(GetVerySevereDiseaseTree())
 	engine.RegisterAssessmentTree(GetJaundiceTree())

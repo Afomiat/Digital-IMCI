@@ -18,6 +18,11 @@ func GetChildHIVAssessmentTree() *domain.AssessmentTree {
 				Level:        1,
 				ParentNode:   "",
 				Instructions: "ASK: About mother's HIV test status",
+				Options: []domain.Option{
+					{Value: "positive", DisplayText: "Positive"},
+					{Value: "negative", DisplayText: "Negative"},
+					{Value: "unknown", DisplayText: "Unknown"},
+				},
 				Answers: map[string]domain.Answer{
 					"positive": {
 						NextNode: "child_antibody_test",
@@ -38,6 +43,11 @@ func GetChildHIVAssessmentTree() *domain.AssessmentTree {
 				Level:        2,
 				ParentNode:   "mother_hiv_status",
 				Instructions: "ASK: About child's HIV antibody test result",
+				Options: []domain.Option{
+					{Value: "positive", DisplayText: "Positive"},
+					{Value: "negative", DisplayText: "Negative"},
+					{Value: "unknown", DisplayText: "Unknown"},
+				},
 				Answers: map[string]domain.Answer{
 					"positive": {
 						NextNode: "child_dna_pcr_test",
@@ -58,6 +68,11 @@ func GetChildHIVAssessmentTree() *domain.AssessmentTree {
 				Level:        3,
 				ParentNode:   "child_antibody_test",
 				Instructions: "ASK: About child's DNA PCR test result",
+				Options: []domain.Option{
+					{Value: "positive", DisplayText: "Positive"},
+					{Value: "negative", DisplayText: "Negative"},
+					{Value: "unknown", DisplayText: "Unknown"},
+				},
 				Answers: map[string]domain.Answer{
 					"positive": {
 						NextNode: "child_breastfeeding",
@@ -72,17 +87,17 @@ func GetChildHIVAssessmentTree() *domain.AssessmentTree {
 			},
 			{
 				NodeID:        "clinical_signs_check",
-				Question:      "Does the child have clinical signs for presumptive HIV? (Oral thrush, Severe pneumonia, or Very Severe Disease)",
+				Question:      "Does the child have clinical signs for presumptive HIV?",
 				QuestionType:  "multi_choice",
 				Required:      false,
 				Level:         4,
 				ParentNode:    "child_dna_pcr_test",
 				ShowCondition: "child_dna_pcr_test.unknown AND child_antibody_test.positive",
 				Instructions:  "CHECK: For clinical signs of presumptive severe HIV disease",
-				Options: []string{
-					"oral_thrush",
-					"severe_pneumonia", 
-					"very_severe_disease",
+				Options: []domain.Option{
+					{Value: "oral_thrush", DisplayText: "Oral thrush"},
+					{Value: "severe_pneumonia", DisplayText: "Severe pneumonia"},
+					{Value: "very_severe_disease", DisplayText: "Very severe disease"},
 				},
 				Answers: map[string]domain.Answer{
 					"value_based": {
@@ -148,7 +163,7 @@ func GetChildHIVAssessmentTree() *domain.AssessmentTree {
 				Actions: []string{
 					"Give Cotrimoxazole prophylaxis",
 					"Assess feeding and counsel",
-					"Assess for TB infection ",
+					"Assess for TB infection",
 					"Ensure mother is tested & enrolled in HIV care & treatment",
 					"Advise on home care",
 					"Refer/Link to ART clinic for ART initiation and other components of care",
