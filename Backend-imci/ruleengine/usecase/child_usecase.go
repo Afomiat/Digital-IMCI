@@ -276,15 +276,15 @@ func (uc *ChildRuleEngineUsecase) saveClassificationResults(ctx context.Context,
 
 func (uc *ChildRuleEngineUsecase) getTreatmentPriority(classification string) int {
 	switch classification {
-	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE PERSISTENT DIARRHOEA", "SEVERE MALNUTRITION", "VERY SEVERE FEBRILE DISEASE", "SEVERE COMPLICATED MEASLES", "MASTOIDITIS", "SEVERE ANEMIA", "COMPLICATED SEVERE ACUTE MALNUTRITION", 
-	     "HIV INFECTED", "PRESUMPTIVE SEVERE HIV DISEASE",
-	     "TB DISEASE": 
+	case "VERY SEVERE DISEASE", "SEVERE PNEUMONIA OR VERY SEVERE DISEASE", "SEVERE DEHYDRATION", "SEVERE PERSISTENT DIARRHOEA", "SEVERE MALNUTRITION", "VERY SEVERE FEBRILE DISEASE", "SEVERE COMPLICATED MEASLES", "MASTOIDITIS", "SEVERE ANEMIA", "COMPLICATED SEVERE ACUTE MALNUTRITION",
+		"HIV INFECTED", "PRESUMPTIVE SEVERE HIV DISEASE",
+		"TB DISEASE":
 		return 1
 	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION", "CHRONIC EAR INFECTION", "MALARIA_HIGH_RISK", "MALARIA_LOW_RISK", "MEASLES WITH EYE OR MOUTH COMPLICATIONS", "ANEMIA", "UNCOMPLICATED SEVERE ACUTE MALNUTRITION", "MODERATE ACUTE MALNUTRITION",
-	     "HIV EXPOSED", "TB INFECTION": 
+		"HIV EXPOSED", "TB INFECTION", "CONFIRMED DEVELOPMENTAL DELAY":
 		return 2
 	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK", "FEVER_NO_MALARIA", "MEASLES_NO_COMPLICATIONS", "NO EAR INFECTION", "NO ANEMIA", "NO ACUTE MALNUTRITION", "FEEDING PROBLEM", "NO FEEDING PROBLEM",
-	     "HIV STATUS UNKNOWN", "HIV INFECTION UNLIKELY", "NO TB INFECTION": 
+		"HIV STATUS UNKNOWN", "HIV INFECTION UNLIKELY", "NO TB INFECTION", "SUSPECTED DEVELOPMENTAL DELAY", "NO DEVELOPMENTAL DELAY", "ASSESSMENT NOT APPLICABLE":
 		return 3
 	default:
 		return 3
@@ -937,18 +937,18 @@ func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classi
 		plans = []*domain.TreatmentPlan{}
 	case "FEEDING PROBLEM":
 		plans = []*domain.TreatmentPlan{
-		{
-			ID:                  uuid.New(),
-			AssessmentID:        classification.AssessmentID,
-			ClassificationID:    classification.ID,
-			DrugName:            "N/A",
-			Dosage:              "N/A",
-			Frequency:           "N/A",
-			Duration:            "N/A",
-			AdministrationRoute: "N/A",
-			IsPreReferral:       false,
-			Instructions:        "Follow-up of feeding problem in 5 days",
-		},
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "N/A",
+				Dosage:              "N/A",
+				Frequency:           "N/A",
+				Duration:            "N/A",
+				AdministrationRoute: "N/A",
+				IsPreReferral:       false,
+				Instructions:        "Follow-up of feeding problem in 5 days",
+			},
 		}
 	case "NO FEEDING PROBLEM":
 		plans = []*domain.TreatmentPlan{
@@ -1076,7 +1076,7 @@ func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classi
 				Instructions:        "Provide HIV prevention counseling",
 			},
 		}
-		case "TB DISEASE":
+	case "TB DISEASE":
 		plans = []*domain.TreatmentPlan{
 			{
 				ID:                  uuid.New(),
@@ -1133,7 +1133,66 @@ func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classi
 				Instructions:        "Provide TB prevention education and advise to return if symptoms develop",
 			},
 		}
-
+	case "ASSESSMENT NOT APPLICABLE":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "N/A",
+				Dosage:              "N/A",
+				Frequency:           "N/A",
+				Duration:            "N/A",
+				AdministrationRoute: "N/A",
+				IsPreReferral:       false,
+				Instructions:        "Complete other assessments first - developmental assessment not applicable due to severe classification",
+			},
+		}
+	case "CONFIRMED DEVELOPMENTAL DELAY":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "N/A",
+				Dosage:              "N/A",
+				Frequency:           "N/A",
+				Duration:            "N/A",
+				AdministrationRoute: "N/A",
+				IsPreReferral:       false,
+				Instructions:        "Refer for psychomotor evaluation and provide responsive caregiving counseling",
+			},
+		}
+	case "SUSPECTED DEVELOPMENTAL DELAY":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "N/A",
+				Dosage:              "N/A",
+				Frequency:           "N/A",
+				Duration:            "N/A",
+				AdministrationRoute: "N/A",
+				IsPreReferral:       false,
+				Instructions:        "Provide responsive caregiving counseling and schedule follow-up in 30 days",
+			},
+		}
+	case "NO DEVELOPMENTAL DELAY":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "N/A",
+				Dosage:              "N/A",
+				Frequency:           "N/A",
+				Duration:            "N/A",
+				AdministrationRoute: "N/A",
+				IsPreReferral:       false,
+				Instructions:        "Praise caregiver and encourage continued responsive caregiving activities",
+			},
+		}
 
 	default:
 		plans = []*domain.TreatmentPlan{}

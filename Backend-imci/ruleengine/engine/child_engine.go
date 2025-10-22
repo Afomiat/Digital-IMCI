@@ -30,6 +30,7 @@ func NewChildRuleEngine() (*ChildRuleEngine, error) {
 	engine.RegisterAssessmentTree(GetFeedingAssessmentTree())
 	engine.RegisterAssessmentTree(GetChildHIVAssessmentTree())
 	engine.RegisterAssessmentTree(GetChildTBAssessmentTree())
+	engine.RegisterAssessmentTree(GetChildDevelopmentalAssessmentTree())
 
 	return engine, nil
 }
@@ -110,6 +111,8 @@ func (re *ChildRuleEngine) SubmitAnswer(flow *domain.AssessmentFlow, nodeID stri
 			finalClassification = re.classifyHIVAssessment(flow.Answers)
 		case "tb_assessment":
 			finalClassification = re.classifyTBAssessment(flow.Answers)
+		case "developmental_assessment":
+			finalClassification = re.classifyDevelopmentalAssessment(flow.Answers)
 		default:
 			finalClassification = "NO_DANGER_SIGNS"
 		}
@@ -202,6 +205,8 @@ func (re *ChildRuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID
 		finalClassification = re.classifyHIVAssessment(answers)
 	case "tb_assessment":
 		finalClassification = re.classifyTBAssessment(answers)
+	case "developmental_assessment":
+		finalClassification = re.classifyDevelopmentalAssessment(answers)
 	default:
 		finalClassification = "NO_DANGER_SIGNS"
 
@@ -691,26 +696,26 @@ func (re *ChildRuleEngine) classifyTBAssessment(answers map[string]interface{}) 
 
 	hasActualSymptomsOrSigns := func(arr interface{}) bool {
 		if arr == nil {
-			return false 
+			return false
 		}
 
 		if symptoms, ok := arr.([]interface{}); ok {
 			if len(symptoms) == 0 {
-				return false 
+				return false
 			}
 			for _, symptom := range symptoms {
 				if fmt.Sprintf("%v", symptom) != "none" {
-					return true 
+					return true
 				}
 			}
 			return false
 		}
 
 		if symptomStr, ok := arr.(string); ok {
-			return symptomStr != "" && symptomStr != "none" 
+			return symptomStr != "" && symptomStr != "none"
 		}
 
-		return false 
+		return false
 	}
 
 	tbSymptoms := answers["tb_symptoms_check"]
@@ -821,4 +826,79 @@ func (re *ChildRuleEngine) GetAvailableTrees() []string {
 
 func (re *ChildRuleEngine) GetTreeQuestions(treeID string) (*domain.AssessmentTree, error) {
 	return re.GetAssessmentTree(treeID)
+}
+
+func (re *ChildRuleEngine) classifyDevelopmentalAssessment(answers map[string]interface{}) string {
+	getValue := func(key string) string {
+		if val, exists := answers[key]; exists {
+			return fmt.Sprintf("%v", val)
+		}
+		return ""
+	}
+
+	getArrayValue := func(key string) []string {
+		if val, exists := answers[key]; exists {
+			if arr, ok := val.([]interface{}); ok {
+				result := make([]string, len(arr))
+				for i, v := range arr {
+					result[i] = fmt.Sprintf("%v", v)
+				}
+				return result
+			}
+		}
+		return []string{}
+	}
+
+	// Get basic assessment data
+	severeClassification := getValue("severe_classification_check")
+	riskFactors := getArrayValue("risk_factors")
+	parentalConcerns := getValue("parental_concerns")
+	currentMilestonesAchieved := getValue("current_milestones_achieved")
+	earlierMilestonesAchieved := getValue("earlier_milestones_achieved")
+	regressionSigns := getValue("regression_signs")
+
+	// Check for severe classification (assessment not applicable)
+	if severeClassification == "yes" {
+		return "ASSESSMENT_NOT_APPLICABLE"
+	}
+
+	// Check for regression signs (immediate CONFIRMED delay)
+	if regressionSigns == "yes" {
+		return "CONFIRMED_DEVELOPMENTAL_DELAY"
+	}
+
+	// Check for risk factors (excluding "none")
+	hasRiskFactors := len(riskFactors) > 0 && !contains(riskFactors, "none")
+
+	// Check for parental concerns
+	hasParentalConcerns := parentalConcerns == "yes"
+
+	// CONFIRMED DEVELOPMENTAL DELAY criteria:
+	// 1. Absence of one or more milestones from current age group AND absence of one or more milestones from earlier age group
+	// 2. OR regression of milestones signs (already checked above)
+	if currentMilestonesAchieved == "no" && earlierMilestonesAchieved == "no" {
+		return "CONFIRMED_DEVELOPMENTAL_DELAY"
+	}
+
+	// SUSPECTED DEVELOPMENTAL DELAY criteria:
+	// 1. Absence of one or more milestones from current age but has reached all milestones for earlier age
+	// 2. OR if there is risk factors
+	// 3. OR parental concern
+	if (currentMilestonesAchieved == "no" && earlierMilestonesAchieved == "yes") || hasRiskFactors || hasParentalConcerns {
+		return "SUSPECTED_DEVELOPMENTAL_DELAY"
+	}
+
+	// NO DEVELOPMENTAL DELAY criteria:
+	// All the important milestones for the current age group achieved
+	return "NO_DEVELOPMENTAL_DELAY"
+}
+
+// Helper function to check if slice contains a value
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
