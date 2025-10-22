@@ -31,6 +31,7 @@ func NewChildRuleEngine() (*ChildRuleEngine, error) {
 	engine.RegisterAssessmentTree(GetChildHIVAssessmentTree())
 	engine.RegisterAssessmentTree(GetChildTBAssessmentTree())
 	engine.RegisterAssessmentTree(GetChildDevelopmentalAssessmentTree())
+	engine.RegisterAssessmentTree(GetChildImmunizationVitaminTree())
 
 	return engine, nil
 }
@@ -207,6 +208,8 @@ func (re *ChildRuleEngine) ProcessBatchAssessment(assessmentID uuid.UUID, treeID
 		finalClassification = re.classifyTBAssessment(answers)
 	case "developmental_assessment":
 		finalClassification = re.classifyDevelopmentalAssessment(answers)
+	case "immunization_vitamin_status":
+		finalClassification = re.classifyImmunizationVitamin(answers)
 	default:
 		finalClassification = "NO_DANGER_SIGNS"
 
@@ -901,4 +904,48 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// Immunization/Vitamin/Deworming classification
+func (re *ChildRuleEngine) classifyImmunizationVitamin(answers map[string]interface{}) string {
+	getValue := func(key string) string {
+		if val, exists := answers[key]; exists {
+			return fmt.Sprintf("%v", val)
+		}
+		return ""
+	}
+
+	missingVaccines := getValue("immunization_missing") == "yes"
+	vitaminAStatus := getValue("vitamin_a_last_6months")
+	dewormingStatus := getValue("deworming_last_6months")
+
+	vitaminDue := vitaminAStatus == "not_received"
+	dewormDue := dewormingStatus == "not_received"
+
+	dueCount := 0
+	if missingVaccines {
+		dueCount++
+	}
+	if vitaminDue {
+		dueCount++
+	}
+	if dewormDue {
+		dueCount++
+	}
+
+	if dueCount >= 2 {
+		return "MULTIPLE_DUE"
+	}
+
+	if missingVaccines {
+		return "MISSING_IMMUNIZATIONS"
+	}
+	if vitaminDue {
+		return "VITAMIN_A_DUE"
+	}
+	if dewormDue {
+		return "DEWORMING_DUE"
+	}
+
+	return "IMMUNIZATION_AND_SUPPLEMENTS_UP_TO_DATE"
 }

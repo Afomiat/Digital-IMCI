@@ -203,6 +203,11 @@ func setupChildTreeRoutes(
 					"description": "Assess TB symptoms, contact history, and clinical signs to classify TB infection",
 				},
 				{
+					"id":          "immunization_vitamin_status",
+					"title":       "Immunization and Vitamin A/Deworming",
+					"description": "Check immunization schedule status and Vitamin A/Deworming due",
+				},
+				{
 					"id":          "developmental_assessment",
 					"title":       "Child Development Assessment",
 					"description": "Assess child's developmental milestones, risk factors, and parental concerns to classify developmental status",
@@ -252,6 +257,9 @@ func setupChildTreeRoutes(
 		})
 		childGroup.GET("/tree/developmental_assessment", func(c *gin.Context) {
 			getChildTreeHandler(c, childUsecase, "developmental_assessment")
+		})
+		childGroup.GET("/tree/immunization_vitamin", func(c *gin.Context) {
+			getChildTreeHandler(c, childUsecase, "immunization_vitamin_status")
 		})
 
 		childGroup.POST("/:id/start-flow", childController.StartAssessmentFlow)

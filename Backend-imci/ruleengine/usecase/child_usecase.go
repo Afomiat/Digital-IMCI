@@ -281,10 +281,10 @@ func (uc *ChildRuleEngineUsecase) getTreatmentPriority(classification string) in
 		"TB DISEASE":
 		return 1
 	case "PNEUMONIA", "SOME DEHYDRATION", "PERSISTENT DIARRHOEA", "DYSENTERY", "FEVER - MALARIA RISK", "ACUTE EAR INFECTION", "CHRONIC EAR INFECTION", "MALARIA_HIGH_RISK", "MALARIA_LOW_RISK", "MEASLES WITH EYE OR MOUTH COMPLICATIONS", "ANEMIA", "UNCOMPLICATED SEVERE ACUTE MALNUTRITION", "MODERATE ACUTE MALNUTRITION",
-		"HIV EXPOSED", "TB INFECTION", "CONFIRMED DEVELOPMENTAL DELAY":
+		"HIV EXPOSED", "TB INFECTION", "CONFIRMED DEVELOPMENTAL DELAY", "MISSING IMMUNIZATIONS", "VITAMIN A DUE", "DEWORMING DUE", "MULTIPLE PREVENTIVE CARE DUE":
 		return 2
 	case "NO COUGH OR DIFFICULT BREATHING", "COUGH OR COLD", "NO DEHYDRATION", "NO MALNUTRITION", "NO MALARIA RISK", "FEVER_NO_MALARIA", "MEASLES_NO_COMPLICATIONS", "NO EAR INFECTION", "NO ANEMIA", "NO ACUTE MALNUTRITION", "FEEDING PROBLEM", "NO FEEDING PROBLEM",
-		"HIV STATUS UNKNOWN", "HIV INFECTION UNLIKELY", "NO TB INFECTION", "SUSPECTED DEVELOPMENTAL DELAY", "NO DEVELOPMENTAL DELAY", "ASSESSMENT NOT APPLICABLE":
+		"HIV STATUS UNKNOWN", "HIV INFECTION UNLIKELY", "NO TB INFECTION", "SUSPECTED DEVELOPMENTAL DELAY", "NO DEVELOPMENTAL DELAY", "ASSESSMENT NOT APPLICABLE", "IMMUNIZATION AND SUPPLEMENTS UP TO DATE":
 		return 3
 	default:
 		return 3
@@ -294,6 +294,68 @@ func (uc *ChildRuleEngineUsecase) saveTreatmentPlans(ctx context.Context, classi
 	var plans []*domain.TreatmentPlan
 
 	switch result.Classification {
+	case "MISSING IMMUNIZATIONS":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "EPI Catch-up",
+				Dosage:              "Per schedule",
+				Frequency:           "Today",
+				Duration:            "As per schedule",
+				AdministrationRoute: "IM/Oral",
+				IsPreReferral:       false,
+				Instructions:        "Provide all due vaccines today and schedule next visit",
+			},
+		}
+	case "VITAMIN A DUE":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Vitamin A",
+				Dosage:              "Per age",
+				Frequency:           "Single dose",
+				Duration:            "Once",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give Vitamin A if child is 6 months or older",
+			},
+		}
+	case "DEWORMING DUE":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Mebendazole/Albendazole",
+				Dosage:              "Per age/weight",
+				Frequency:           "Single dose",
+				Duration:            "Once",
+				AdministrationRoute: "Oral",
+				IsPreReferral:       false,
+				Instructions:        "Give deworming if child is 2 years or older",
+			},
+		}
+	case "MULTIPLE PREVENTIVE CARE DUE":
+		plans = []*domain.TreatmentPlan{
+			{
+				ID:                  uuid.New(),
+				AssessmentID:        classification.AssessmentID,
+				ClassificationID:    classification.ID,
+				DrugName:            "Comprehensive catch-up",
+				Dosage:              "N/A",
+				Frequency:           "Today",
+				Duration:            "N/A",
+				AdministrationRoute: "Mixed",
+				IsPreReferral:       false,
+				Instructions:        "Provide missing vaccines and give Vitamin A/deworming as due",
+			},
+		}
+	case "IMMUNIZATION AND SUPPLEMENTS UP TO DATE":
+		plans = []*domain.TreatmentPlan{}
 	case "VERY SEVERE DISEASE":
 		plans = []*domain.TreatmentPlan{
 			{
