@@ -4,41 +4,62 @@ import (
 	"net/http"
 
 	"github.com/Afomiat/Digital-IMCI/domain"
+	"github.com/Afomiat/Digital-IMCI/internal/userutil"
 	"github.com/gin-gonic/gin"
 )
 
 type TelegramController struct {
+	SignupUsecase   domain.SignupUsecase
 	TelegramService domain.TelegramService
 }
 
-func NewTelegramController(telegramService domain.TelegramService) *TelegramController {
+func NewTelegramController(signupUsecase domain.SignupUsecase, telegramService domain.TelegramService) *TelegramController {
 	return &TelegramController{
+		SignupUsecase:   signupUsecase,
 		TelegramService: telegramService,
 	}
 }
 
-func (tc *TelegramController) GetStartLink(ctx *gin.Context) {
-	startLink := tc.TelegramService.GetStartLink()
-	
-	ctx.JSON(http.StatusOK, gin.H{
-		"start_link": startLink,
-		"message":    "Use this link to start the Telegram bot",
-	})
-}
-
-func (tc *TelegramController) GenerateSignupQR(ctx *gin.Context) {
-	username := ctx.Query("username")
-	if username == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Username required"})
+func (tc *TelegramController) HandleSignup(ctx *gin.Context, form *domain.SignupForm) {
+	if tc.TelegramService == nil {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "Telegram signup is not available"})
 		return
 	}
 
+	if _, err := tc.SignupUsecase.PrepareSignupOTP(ctx.Request.Context(), form); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-	startLink := tc.TelegramService.GetStartLink()
-	
+	if !tc.TelegramService.IsRunning() {
+		if err := tc.TelegramService.StartPolling(); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start Telegram bot"})
+			return
+		}
+	}
+
+	phoneForDisplay := userutil.FormatPhoneE164(form.Phone)
+	if phoneForDisplay == "" {
+		phoneForDisplay = form.Phone
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
-		"start_link": startLink,
-		"username": username,
-		"message": "Scan the QR code or use the link to start the bot",
+		"message":   "Open the Telegram bot to receive your OTP",
+		"method":    "telegram",
+		"bot_link":  tc.TelegramService.GetStartLink(),
+		"phone":     phoneForDisplay,
+		"full_name": form.FullName,
+	})
+}
+
+func (tc *TelegramController) GetStartLink(ctx *gin.Context) {
+	if tc.TelegramService == nil {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "Telegram service not configured"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"start_link": tc.TelegramService.GetStartLink(),
+		"message":    "Use this link to start the Telegram bot",
 	})
 }

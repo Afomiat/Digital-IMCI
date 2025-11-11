@@ -23,12 +23,12 @@ func NewSignUpRouter(
 ) {
 	otpRepo := repository.NewOtpRepository(db)
 	telegramRepo := repository.NewTelegramRepository(db)
-	
+
 	var telegramService domain.TelegramService
 	if env.TelegramBotToken != "" {
-		telegramSvc, err := service.GetTelegramService( 
-			env.TelegramBotToken, 
-			telegramRepo, 
+		telegramSvc, err := service.GetTelegramService(
+			env.TelegramBotToken,
+			telegramRepo,
 			otpRepo,
 		)
 		if err != nil {
@@ -48,26 +48,20 @@ func NewSignUpRouter(
 		log.Println("Meta WhatsApp Service initialized successfully for signup")
 	}
 
-	signUsecase := usecase.NewSignupUsecase(
-		medicalProfessionalRepo, 
-		otpRepo, 
-		telegramService, 
+	signupUsecase := usecase.NewSignupUsecase(
+		medicalProfessionalRepo,
+		otpRepo,
+		telegramService,
 		whatsappService,
-		timeout, 
+		timeout,
 		env,
 	)
-	
-	signController := controller.NewSignupController(signUsecase, telegramRepo, env, telegramService)
-	
+
+	telegramController := controller.NewTelegramController(signupUsecase, telegramService)
+	whatsappController := controller.NewWhatsAppController(signupUsecase)
+	signController := controller.NewSignupController(signupUsecase, telegramController, whatsappController)
+
 	group.POST("/signup", signController.Signup)
 	group.POST("/verify", signController.Verify)
-	group.GET("/debug-config", signController.DebugConfig)
-	group.GET("/validate-telegram", signController.ValidateTelegramSession)
-	
-	group.POST("/start-telegram-bot", signController.StartTelegramBot)
-	group.POST("/stop-telegram-bot", signController.StopTelegramBot)
-	
-	telegramController := controller.NewTelegramController(telegramService)
 	group.GET("/telegram/start-link", telegramController.GetStartLink)
-	group.GET("/telegram/signup-qr", telegramController.GenerateSignupQR)
 }

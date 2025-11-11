@@ -2,15 +2,15 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
 	"sync"
-	"time"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/Afomiat/Digital-IMCI/domain"
 	"github.com/Afomiat/Digital-IMCI/internal/userutil"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type telegramBotService struct {
@@ -121,28 +121,23 @@ func (t *telegramBotService) handleUpdate(update tgbotapi.Update) {
 	}
 }
 
-
 func (t *telegramBotService) handleStartCommand(update tgbotapi.Update) {
-
-
-	args := strings.TrimSpace(update.Message.CommandArguments())
 	chatID := update.Message.Chat.ID
 
-	if args == "" {
-		// Ask for phone number
-		btn := tgbotapi.NewKeyboardButtonContact("📱 Share phone number")
-		keyboard := tgbotapi.NewReplyKeyboard(
-			tgbotapi.NewKeyboardButtonRow(btn),
-		)
+	title := "Share Phone Number"
+	button := tgbotapi.NewKeyboardButtonContact(title)
+	button.RequestContact = true
 
-		msg := tgbotapi.NewMessage(chatID, "Please share your phone number to continue.")
-		msg.ReplyMarkup = keyboard
-		t.bot.Send(msg)
-		return
-	}
+	keyboard := tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(button),
+	)
+	keyboard.ResizeKeyboard = true
+	keyboard.OneTimeKeyboard = true
 
-	// Deep link path → use provided phone directly
-	t.linkAccountAndSendOTP(update.Message.From.UserName, chatID, args)
+	msg := tgbotapi.NewMessage(chatID,
+		"Click the button below to share your phone number and receive your OTP.")
+	msg.ReplyMarkup = keyboard
+	t.bot.Send(msg)
 }
 
 func (t *telegramBotService) handleContact(update tgbotapi.Update) {
@@ -167,8 +162,23 @@ func (t *telegramBotService) handleContact(update tgbotapi.Update) {
 func (t *telegramBotService) linkAccountAndSendOTP(username string, chatID int64, phone string) {
 	ctx := context.Background()
 
-	// Save Telegram mapping
-	if err := t.telegramRepo.SaveChatID(ctx, username, chatID, phone); err != nil {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		t.reply(chatID, "❌ Please set a Telegram username in your settings and try again.")
+		return
+	}
+
+	if username[0] == '@' {
+		username = username[1:]
+	}
+
+	normalized := userutil.NormalizePhone(phone)
+	if normalized == "" {
+		t.reply(chatID, "❌ Unable to detect your phone number. Please ensure your phone number is shared correctly.")
+		return
+	}
+
+	if err := t.telegramRepo.SaveChatID(ctx, username, chatID, normalized); err != nil {
 		log.Printf("Failed to save chat ID: %v", err)
 		t.reply(chatID, "❌ Failed to link your account. Please try again.")
 		return
@@ -176,27 +186,45 @@ func (t *telegramBotService) linkAccountAndSendOTP(username string, chatID int64
 
 	log.Printf("Successfully saved Telegram mapping for @%s", username)
 
-	// Generate OTP
-	otpCode := userutil.GenerateOTP()
-	otp := &domain.OTP{
-		Phone:     phone,
-		Code:      otpCode,
-		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(5 * time.Minute),
-	}
-	if err := t.otpRepo.SaveOTP(ctx, otp); err != nil {
-		log.Printf("Failed to save OTP: %v", err)
-		t.reply(chatID, "❌ Error generating OTP. Please try again.")
+	phone = strings.TrimSpace(phone)
+
+	var (
+		otp     *domain.OTP
+		err     error
+		found   bool
+		storage string
+	)
+
+	for _, candidate := range candidatePhones(phone) {
+		log.Printf("Attempting to match OTP for candidate phone: %s", candidate)
+		otp, err = t.otpRepo.GetOtpByPhone(ctx, candidate)
+		if err == nil {
+			found = true
+			storage = candidate
+			break
+		}
+
+		if errors.Is(err, domain.ErrNotFound) {
+			continue
+		}
+
+		log.Printf("Failed to fetch OTP for phone %s: %v", candidate, err)
+		t.reply(chatID, "❌ Error retrieving your OTP. Please try again.")
 		return
 	}
 
-	// Send OTP (HTML mode)
+	if !found || otp == nil {
+		t.reply(chatID, "⚠️ No pending signup found for this phone number. Please start the signup process in the app first.")
+		return
+	}
+
 	otpMessage := fmt.Sprintf(
 		"🔐 <b>Digital IMCI Verification</b>\n\n"+
 			"Your OTP code is: <code>%s</code>\n\n"+
-			"⏰ <b>Expires in:</b> 5 minutes\n\n"+
-			"Enter this code in the app to complete your registration!",
-		otpCode,
+			"⏰ <b>Expires at:</b> %s\n\n"+
+			"Enter this code in the app to complete your registration.",
+		otp.Code,
+		otp.ExpiresAt.Format("15:04:05"),
 	)
 
 	msg := tgbotapi.NewMessage(chatID, otpMessage)
@@ -208,18 +236,17 @@ func (t *telegramBotService) linkAccountAndSendOTP(username string, chatID int64
 	}
 
 	// Success summary
-	// successMsg := fmt.Sprintf(
-	// 	"✅ <b>Account Linked Successfully!</b>\n\n"+
-	// 		"• Telegram: @%s\n"+
-	// 		"• Phone: %s\n\n"+
-	// 		"Return to the Digital IMCI app and enter the OTP code to complete your registration.",
-	// 	username, phone,
-	// )
-	// msg2 := tgbotapi.NewMessage(chatID, successMsg)
-	// msg2.ParseMode = "HTML"
-	// t.bot.Send(msg2)
+	successMsg := fmt.Sprintf(
+		"✅ <b>Account Linked Successfully!</b>\n\n"+
+			"Telegram: @%s\nPhone: %s\n\nEnter this OTP in the app to finish signing up.",
+		username,
+		userutil.FormatPhoneE164(storage),
+	)
+	msg2 := tgbotapi.NewMessage(chatID, successMsg)
+	msg2.ParseMode = "HTML"
+	t.bot.Send(msg2)
 
-	// log.Printf("Successfully completed Telegram linking for @%s", username)
+	log.Printf("Successfully delivered existing OTP to @%s for phone %s", username, storage)
 }
 
 func (t *telegramBotService) reply(chatID int64, message string) {
@@ -229,6 +256,10 @@ func (t *telegramBotService) reply(chatID int64, message string) {
 	if err != nil {
 		log.Printf("Failed to send message: %v", err)
 	}
+}
+
+func candidatePhones(phone string) []string {
+	return userutil.PhoneVariants(phone)
 }
 
 func (t *telegramBotService) sendHelpMessage(chatID int64) {

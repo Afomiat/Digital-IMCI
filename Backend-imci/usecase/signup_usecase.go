@@ -18,10 +18,11 @@ type SignupUsecase struct {
 	medicalProfessionalRepo domain.MedicalProfessionalRepository
 	otpRepo                 domain.OtpRepository
 	telegramService         domain.TelegramService
-	whatsappService        domain.WhatsAppService
+	whatsappService         domain.WhatsAppService
 	contextTimeout          time.Duration
 	env                     *config.Env
 }
+
 func NewSignupUsecase(
 	medicalProfessionalRepo domain.MedicalProfessionalRepository,
 	otpRepo domain.OtpRepository,
@@ -34,32 +35,42 @@ func NewSignupUsecase(
 		medicalProfessionalRepo: medicalProfessionalRepo,
 		otpRepo:                 otpRepo,
 		telegramService:         telegramService,
-		whatsappService:        whatsappService,
+		whatsappService:         whatsappService,
 
-		contextTimeout:          timeout,
-		env:                     env,
+		contextTimeout: timeout,
+		env:            env,
 	}
 }
 func (su *SignupUsecase) GetMedicalProfessionalByPhone(ctx context.Context, phone string) (*domain.MedicalProfessional, error) {
 	ctx, cancel := context.WithTimeout(ctx, su.contextTimeout)
 	defer cancel()
 
-	return su.medicalProfessionalRepo.GetByPhone(ctx, phone)
+	normalized := userutil.NormalizePhone(phone)
+	if normalized == "" {
+		return nil, errors.New("invalid phone number")
+	}
+
+	return su.medicalProfessionalRepo.GetByPhone(ctx, normalized)
 }
 
 func (su *SignupUsecase) RegisterMedicalProfessional(ctx context.Context, form *domain.SignupForm) (uuid.UUID, error) {
 	ctx, cancel := context.WithTimeout(ctx, su.contextTimeout)
 	defer cancel()
 
+	normalizedPhone := userutil.NormalizePhone(form.Phone)
+	if normalizedPhone == "" {
+		return uuid.Nil, errors.New("invalid phone number")
+	}
+
+	form.Phone = normalizedPhone
+
 	hashedPass, err := userutil.HashPassword(form.Password)
 	if err != nil {
 		return uuid.Nil, err
 	}
-	fmt.Printf("Original password: %s\n", form.Password)
-	fmt.Printf("Hashed password: %s\n", hashedPass)
 	professional := domain.MedicalProfessional{
 		FullName:     form.FullName,
-		Phone:        form.Phone,
+		Phone:        normalizedPhone,
 		PasswordHash: hashedPass,
 		Role:         form.Role,
 		UseWhatsApp:  form.UseWhatsApp,
@@ -76,76 +87,65 @@ func (su *SignupUsecase) RegisterMedicalProfessional(ctx context.Context, form *
 	return professional.ID, nil
 }
 
+func (su *SignupUsecase) PrepareSignupOTP(ctx context.Context, form *domain.SignupForm) (*domain.OTP, error) {
+	ctx, cancel := context.WithTimeout(ctx, su.contextTimeout)
+	defer cancel()
 
-func (su *SignupUsecase) SendOtp(ctx context.Context, professional *domain.MedicalProfessional) error {
-	log.Printf("SendOtp called for professional: %+v", professional)
-	
-	storedOTP, err := su.otpRepo.GetOtpByPhone(ctx, professional.Phone)
-	if err != nil && !errors.Is(err, domain.ErrNotFound) {
-		log.Printf("Error checking existing OTP: %v", err)
-		return err
+	form.Phone = userutil.NormalizePhone(form.Phone)
+	if form.Phone == "" {
+		return nil, errors.New("invalid phone number")
 	}
 
-	if storedOTP != nil {
-		log.Printf("Found existing OTP: %+v", storedOTP)
-		if time.Now().Before(storedOTP.ExpiresAt) {
-			log.Printf("OTP already sent and not expired yet")
-			return errors.New("OTP already sent")
-		}
-		if err := su.otpRepo.DeleteOTP(ctx, storedOTP.Phone); err != nil {
-			log.Printf("Error deleting expired OTP: %v", err)
-			return err
-		}
-		log.Printf("Deleted expired OTP")
+	otp, err := su.generateAndStoreOTP(ctx, form)
+	if err != nil {
+		return nil, err
 	}
 
-	otp := domain.OTP{
-		FullName: professional.FullName,
-		Phone:     professional.Phone,
-		Role:      professional.Role,
-		FacilityName: professional.FacilityName,
-		Code:      userutil.GenerateOTP(),
-		Password:  professional.PasswordHash, 
-		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(time.Minute * 5),
-	}
-	fmt.Printf("***************Generated new OTP: %s for phone: %s\n", otp.Role, otp.FacilityName)
-	log.Printf("Generated new OTP: %s for phone: %s", otp.Code, otp.Phone)
+	return otp, nil
+}
 
-	if err := su.otpRepo.SaveOTP(ctx, &otp); err != nil {
-		log.Printf("Error saving OTP: %v", err)
-		return err
-	}
-	log.Printf("OTP saved successfully")
+func (su *SignupUsecase) SendWhatsAppOTP(ctx context.Context, form *domain.SignupForm) (*domain.OTP, error) {
+	ctx, cancel := context.WithTimeout(ctx, su.contextTimeout)
+	defer cancel()
 
-	if professional.TelegramUsername != "" {
-		log.Printf("Sending Telegram OTP to @%s", professional.TelegramUsername)
-		if err := su.telegramService.SendOTP(ctx, professional.TelegramUsername, otp.Code); err != nil {
-			log.Printf("Failed to send Telegram OTP: %v", err)
-			return fmt.Errorf("failed to send Telegram OTP: %w", err)
-		}
-		log.Printf("Telegram OTP sent successfully to @%s", professional.TelegramUsername)
-		
-	} else if professional.UseWhatsApp {
-		log.Printf("Sending WhatsApp OTP to %s", professional.Phone)
-		if err := su.whatsappService.SendOTP(ctx, professional.Phone, otp.Code); err != nil {
-			log.Printf("Failed to send WhatsApp OTP: %v", err)
-			return fmt.Errorf("failed to send WhatsApp OTP: %w", err)
-		}
-		log.Printf("WhatsApp OTP sent successfully to %s", professional.Phone)
-		
-	} else {
-		log.Printf("No OTP delivery method specified")
-		return errors.New("no OTP delivery method specified. Use Telegram or WhatsApp")
+	if su.whatsappService == nil {
+		return nil, errors.New("whatsapp service not configured")
 	}
 
-	return nil
+	form.Phone = userutil.NormalizePhone(form.Phone)
+	if form.Phone == "" {
+		return nil, errors.New("invalid phone number")
+	}
+
+	otp, err := su.generateAndStoreOTP(ctx, form)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("Sending WhatsApp OTP to %s", form.Phone)
+	phoneE164 := userutil.FormatPhoneE164(form.Phone)
+	if phoneE164 == "" {
+		return nil, errors.New("invalid phone number for WhatsApp")
+	}
+
+	if err := su.whatsappService.SendOTP(ctx, phoneE164, otp.Code); err != nil {
+		log.Printf("Failed to send WhatsApp OTP: %v", err)
+		return nil, fmt.Errorf("failed to send WhatsApp OTP: %w", err)
+	}
+
+	log.Printf("WhatsApp OTP sent successfully to %s", form.Phone)
+	return otp, nil
 }
 func (su *SignupUsecase) GetOtpByPhone(ctx context.Context, phone string) (*domain.OTP, error) {
 	ctx, cancel := context.WithTimeout(ctx, su.contextTimeout)
 	defer cancel()
-	
-	return su.otpRepo.GetOtpByPhone(ctx, phone)
+
+	normalized := userutil.NormalizePhone(phone)
+	if normalized == "" {
+		return nil, errors.New("invalid phone number")
+	}
+
+	return su.otpRepo.GetOtpByPhone(ctx, normalized)
 }
 
 func (su *SignupUsecase) VerifyOtp(ctx context.Context, otp *domain.VerifyOtp) (*domain.OTP, error) {
@@ -176,3 +176,33 @@ func (su *SignupUsecase) VerifyOtp(ctx context.Context, otp *domain.VerifyOtp) (
 	return storedOTP, nil
 }
 
+func (su *SignupUsecase) generateAndStoreOTP(ctx context.Context, form *domain.SignupForm) (*domain.OTP, error) {
+	if form == nil {
+		return nil, errors.New("signup form is required")
+	}
+
+	form.Phone = userutil.NormalizePhone(form.Phone)
+	if form.Phone == "" {
+		return nil, errors.New("invalid phone number")
+	}
+
+	otp := domain.OTP{
+		FullName:     form.FullName,
+		Phone:        form.Phone,
+		Role:         form.Role,
+		FacilityName: form.FacilityName,
+		Code:         userutil.GenerateOTP(),
+		Password:     form.Password,
+		CreatedAt:    time.Now(),
+		ExpiresAt:    time.Now().Add(5 * time.Minute),
+	}
+
+	log.Printf("Generated signup OTP for phone %s", otp.Phone)
+
+	if err := su.otpRepo.SaveOTP(ctx, &otp); err != nil {
+		log.Printf("Error saving OTP: %v", err)
+		return nil, err
+	}
+
+	return &otp, nil
+}
