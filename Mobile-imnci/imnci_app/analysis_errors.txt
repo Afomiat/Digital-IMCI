@@ -1,0 +1,83 @@
+Analyzing imnci_app...                                          
+
+   info - 'background' is deprecated and shouldn't be used. Use surface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\Theme\theme.dart:347:43 - deprecated_member_use
+   info - The imported package 'data_connection_checker_tv' isn't a dependency of the importing package - lib\core\connection\network_info.dart:2:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:data_connection_checker_tv/data_connection_checker.dart' - lib\core\connection\network_info.dart:2:8 - uri_does_not_exist
+  error - Undefined class 'DataConnectionChecker' - lib\core\connection\network_info.dart:9:9 - undefined_class
+   info - The imported package 'dio' isn't a dependency of the importing package - lib\core\databases\api\dio_consumer.dart:1:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:dio/dio.dart' - lib\core\databases\api\dio_consumer.dart:1:8 - uri_does_not_exist
+  error - Undefined class 'Dio' - lib\core\databases\api\dio_consumer.dart:7:9 - undefined_class
+  error - Undefined name 'FormData' - lib\core\databases\api\dio_consumer.dart:22:28 - undefined_identifier
+  error - The name 'DioException' isn't a type and can't be used in an on-catch clause - lib\core\databases\api\dio_consumer.dart:25:10 - non_type_in_catch_clause
+  error - The name 'DioException' isn't a type and can't be used in an on-catch clause - lib\core\databases\api\dio_consumer.dart:38:10 - non_type_in_catch_clause
+  error - The name 'DioException' isn't a type and can't be used in an on-catch clause - lib\core\databases\api\dio_consumer.dart:54:10 - non_type_in_catch_clause
+  error - Undefined name 'FormData' - lib\core\databases\api\dio_consumer.dart:68:28 - undefined_identifier
+  error - The name 'DioException' isn't a type and can't be used in an on-catch clause - lib\core\databases\api\dio_consumer.dart:72:10 - non_type_in_catch_clause
+   info - The imported package 'shared_preferences' isn't a dependency of the importing package - lib\core\databases\cache\cache_helper.dart:2:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:shared_preferences/shared_preferences.dart' - lib\core\databases\cache\cache_helper.dart:2:8 - uri_does_not_exist
+  error - Undefined class 'SharedPreferences' - lib\core\databases\cache\cache_helper.dart:5:14 - undefined_class
+   info - Missing type annotation - lib\core\databases\cache\cache_helper.dart:8:3 - strict_top_level_inference
+  error - Undefined name 'SharedPreferences' - lib\core\databases\cache\cache_helper.dart:9:31 - undefined_identifier
+   info - The imported package 'dio' isn't a dependency of the importing package - lib\core\errors\expentions.dart:1:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:dio/dio.dart' - lib\core\errors\expentions.dart:1:8 - uri_does_not_exist
+   info - Missing type annotation - lib\core\errors\expentions.dart:62:1 - strict_top_level_inference
+  error - Undefined class 'DioException' - lib\core\errors\expentions.dart:62:20 - undefined_class
+  error - Undefined name 'DioExceptionType' - lib\core\errors\expentions.dart:64:10 - undefined_identifier
+  error - Undefined name 'DioExceptionType' - lib\core\errors\expentions.dart:66:10 - undefined_identifier
+  error - Undefined name 'DioExceptionType' - lib\core\errors\expentions.dart:68:10 - undefined_identifier
+  error - Undefined name 'DioExceptionType' - lib\core\errors\expentions.dart:71:10 - undefined_identifier
+  error - Undefined name 'DioExceptionType' - lib\core\errors\expentions.dart:74:10 - undefined_identifier
+  error - Undefined name 'DioExceptionType' - lib\core\errors\expentions.dart:77:10 - undefined_identifier
+  error - Undefined name 'DioExceptionType' - lib\core\errors\expentions.dart:102:10 - undefined_identifier
+  error - Undefined name 'DioExceptionType' - lib\core\errors\expentions.dart:106:10 - undefined_identifier
+  error - Target of URI doesn't exist: '../../../core/databases/cache/cache_helper.dart' - lib\features\splash-and-landing\data\datasources\template_local_data_source.dart:2:8 - uri_does_not_exist
+  error - Target of URI doesn't exist: '../../../core/errors/expentions.dart' - lib\features\splash-and-landing\data\datasources\template_local_data_source.dart:3:8 - uri_does_not_exist
+  error - Undefined class 'CacheHelper' - lib\features\splash-and-landing\data\datasources\template_local_data_source.dart:7:9 - undefined_class
+   info - Missing type annotation - lib\features\splash-and-landing\data\datasources\template_local_data_source.dart:11:3 - strict_top_level_inference
+  error - The method 'CacheExeption' isn't defined for the type 'TemplateLocalDataSource' - lib\features\splash-and-landing\data\datasources\template_local_data_source.dart:20:13 - undefined_method
+  error - The method 'CacheExeption' isn't defined for the type 'TemplateLocalDataSource' - lib\features\splash-and-landing\data\datasources\template_local_data_source.dart:30:13 - undefined_method
+  error - Target of URI doesn't exist: '../../../core/databases/api/api_consumer.dart' - lib\features\splash-and-landing\data\datasources\template_remote_data_source.dart:1:8 - uri_does_not_exist
+  error - Target of URI doesn't exist: '../../../core/databases/api/end_points.dart' - lib\features\splash-and-landing\data\datasources\template_remote_data_source.dart:2:8 - uri_does_not_exist
+  error - Target of URI doesn't exist: '../../../core/params/params.dart' - lib\features\splash-and-landing\data\datasources\template_remote_data_source.dart:3:8 - uri_does_not_exist
+  error - Undefined class 'ApiConsumer' - lib\features\splash-and-landing\data\datasources\template_remote_data_source.dart:7:9 - undefined_class
+  error - Undefined class 'TemplateParams' - lib\features\splash-and-landing\data\datasources\template_remote_data_source.dart:10:37 - undefined_class
+  error - Undefined name 'EndPoints' - lib\features\splash-and-landing\data\datasources\template_remote_data_source.dart:11:39 - undefined_identifier
+   info - The imported package 'dartz' isn't a dependency of the importing package - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:1:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:dartz/dartz.dart' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:1:8 - uri_does_not_exist
+  error - Target of URI doesn't exist: '../../../core/connection/network_info.dart' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:3:8 - uri_does_not_exist
+  error - Target of URI doesn't exist: '../../../core/errors/expentions.dart' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:4:8 - uri_does_not_exist
+  error - Target of URI doesn't exist: '../../../core/errors/failure.dart' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:5:8 - uri_does_not_exist
+  error - Target of URI doesn't exist: '../../../core/params/params.dart' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:6:8 - uri_does_not_exist
+  error - Undefined class 'NetworkInfo' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:13:9 - undefined_class
+  error - The name 'Either' isn't a type, so it can't be used as a type argument - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:21:10 - non_type_as_type_argument
+  error - The name 'Failure' isn't a type, so it can't be used as a type argument - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:21:17 - non_type_as_type_argument
+  error - Undefined class 'TemplateParams' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:22:17 - undefined_class
+  error - The method 'Right' isn't defined for the type 'TemplateRepositoryImpl' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:27:16 - undefined_method
+  error - The name 'ServerException' isn't a type and can't be used in an on-catch clause - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:28:12 - non_type_in_catch_clause
+  error - The method 'Left' isn't defined for the type 'TemplateRepositoryImpl' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:29:16 - undefined_method
+  error - The method 'Failure' isn't defined for the type 'TemplateRepositoryImpl' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:29:21 - undefined_method
+  error - The method 'Right' isn't defined for the type 'TemplateRepositoryImpl' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:34:16 - undefined_method
+  error - The name 'CacheExeption' isn't a type and can't be used in an on-catch clause - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:35:12 - non_type_in_catch_clause
+  error - The method 'Left' isn't defined for the type 'TemplateRepositoryImpl' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:36:16 - undefined_method
+  error - The method 'Failure' isn't defined for the type 'TemplateRepositoryImpl' - lib\features\splash-and-landing\data\repositories\template_repository_impl.dart:36:21 - undefined_method
+   info - The imported package 'dartz' isn't a dependency of the importing package - lib\features\splash-and-landing\domain\repositories\template_repository.dart:1:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:dartz/dartz.dart' - lib\features\splash-and-landing\domain\repositories\template_repository.dart:1:8 - uri_does_not_exist
+  error - Target of URI doesn't exist: '../../../core/errors/failure.dart' - lib\features\splash-and-landing\domain\repositories\template_repository.dart:2:8 - uri_does_not_exist
+  error - Target of URI doesn't exist: '../../../core/params/params.dart' - lib\features\splash-and-landing\domain\repositories\template_repository.dart:3:8 - uri_does_not_exist
+  error - The name 'Either' isn't a type, so it can't be used as a type argument - lib\features\splash-and-landing\domain\repositories\template_repository.dart:7:10 - non_type_as_type_argument
+  error - The name 'Failure' isn't a type, so it can't be used as a type argument - lib\features\splash-and-landing\domain\repositories\template_repository.dart:7:17 - non_type_as_type_argument
+  error - Undefined class 'TemplateParams' - lib\features\splash-and-landing\domain\repositories\template_repository.dart:8:17 - undefined_class
+   info - The imported package 'dartz' isn't a dependency of the importing package - lib\features\splash-and-landing\domain\usecases\get_template.dart:1:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:dartz/dartz.dart' - lib\features\splash-and-landing\domain\usecases\get_template.dart:1:8 - uri_does_not_exist
+  error - Target of URI doesn't exist: '../../../core/errors/failure.dart' - lib\features\splash-and-landing\domain\usecases\get_template.dart:3:8 - uri_does_not_exist
+  error - Target of URI doesn't exist: '../../../core/params/params.dart' - lib\features\splash-and-landing\domain\usecases\get_template.dart:4:8 - uri_does_not_exist
+  error - The name 'Either' isn't a type, so it can't be used as a type argument - lib\features\splash-and-landing\domain\usecases\get_template.dart:13:10 - non_type_as_type_argument
+  error - The name 'Failure' isn't a type, so it can't be used as a type argument - lib\features\splash-and-landing\domain\usecases\get_template.dart:13:17 - non_type_as_type_argument
+  error - Undefined class 'TemplateParams' - lib\features\splash-and-landing\domain\usecases\get_template.dart:14:17 - undefined_class
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\splash-and-landing\presentation\screens\splash_screen.dart:83:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\splash-and-landing\presentation\screens\splash_screen.dart:113:50 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\features\splash-and-landing\presentation\widgets\widget.dart:4:9 - use_super_parameters
+  error - Target of URI doesn't exist: 'features/splash-and-landing/presentation/screens/template_screen.dart' - lib\main.dart:4:8 - uri_does_not_exist
+  error - The name 'SplashScreen' isn't a class - lib\main.dart:28:19 - creation_with_non_type
+
+79 issues found. (ran in 1.7s)
