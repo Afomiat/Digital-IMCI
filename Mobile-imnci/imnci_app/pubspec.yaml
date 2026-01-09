@@ -65,6 +65,9 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/onboarding_doctor.png
+    - assets/images/onboarding_progress.png
+    - assets/images/onboarding_team.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

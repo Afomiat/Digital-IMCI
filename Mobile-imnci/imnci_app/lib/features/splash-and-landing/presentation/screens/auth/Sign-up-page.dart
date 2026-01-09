@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:imnci_app/features/splash-and-landing/presentation/widgets/custom_text_field.dart';
 import 'invited-page.dart';
+import 'login-page.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -289,7 +290,10 @@ class _SignUpPageState extends State<SignUpPage>
                         ),
                         GestureDetector(
                           onTap: () {
-                            // TODO: Navigate to login page
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (context) => const LoginPage()),
+                            );
                           },
                           child: Text(
                             'Log in',
