@@ -39,6 +39,7 @@ dependencies:
   dartz: ^0.10.1
   shared_preferences: ^2.5.4
   data_connection_checker_tv: ^0.3.5-nullsafety
+  intl_phone_field: ^3.2.0
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +65,9 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/onboarding_doctor.png
+    - assets/images/onboarding_progress.png
+    - assets/images/onboarding_team.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
